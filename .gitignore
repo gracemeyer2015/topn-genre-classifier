@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+capstone-env/
+.env
+*.npy
+*.npz
+.DS_Store
