@@ -14,7 +14,8 @@ ROW_FMT = "{:<12} {:>10} {:>7} {:>8}"
 def discover_audio(root):
     """Walk root/<genre>/*.wav and return [(path, genre_label), ...].
 
-    Labels are the lowercased genre folder name; int encoding is PR#2 scope.
+    Labels are the lowercased genre folder name, as strings; integer
+    encoding is left to downstream consumers.
     Matching is extension-case-insensitive (.wav/.WAV) so results don't vary
     across filesystems. Non-.wav files are ignored. An empty genre folder
     logs a warning but does not raise.
@@ -22,8 +23,9 @@ def discover_audio(root):
     root = Path(root)
     if not root.is_dir():
         raise FileNotFoundError(
-            f"Audio root not found or not a directory: {root} "
-            "(the dataset is gitignored -- see README/HANDOFF for download steps)"
+            f"Audio root not found or not a directory: {root}. Expected layout: "
+            "<root>/<genre>/*.wav. The dataset is not tracked in git and must be "
+            "downloaded separately."
         )
     pairs = []
     for genre_dir in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -42,9 +44,10 @@ def discover_audio(root):
 def validate_audio(path):
     """Lightweight decode check: can soundfile read this file's header?
 
-    Header-only by design (full decode of 1000 files is PR#2 territory if we
-    need it). Returns True if readable, False if corrupt/unrecognized. Only
-    catches soundfile's documented decode error, not arbitrary exceptions.
+    Header-only by design: decoding every file fully is far slower, so a
+    file with a valid header but corrupt audio data can still pass. Returns
+    True if readable, False if corrupt/unrecognized. Only catches
+    soundfile's documented decode error, not arbitrary exceptions.
     """
     try:
         sf.info(str(path))

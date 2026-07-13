@@ -2,8 +2,8 @@
 
 Team handoff contract: audio_to_melspectrogram returns a float32 numpy array
 of shape (n_mels, time_frames) -- e.g. (128, 130) for a 3-second segment at
-sr=22050, hop_length=512. Segmentation into 3-second, [N, 1, 128, 130] batches
-is PR#2 scope; this module only does single-clip conversion.
+sr=22050, hop_length=512. This module converts whole single clips; slicing
+into 3-second [N, 1, 128, 130] training batches happens downstream.
 """
 
 import argparse
@@ -38,8 +38,8 @@ def audio_to_melspectrogram(
 
 def save_spectrogram_plot(mel_spec_db, sr, hop_length, output_path, title=None):
     """Render a mel spectrogram to a PNG using librosa's display helper."""
-    # Imported here so importing this module (tests, PR#2 segmentation code)
-    # doesn't pay matplotlib's startup cost for a plot-only code path.
+    # Imported here so importing this module doesn't pay matplotlib's
+    # startup cost when no plotting happens.
     import librosa.display
     import matplotlib.pyplot as plt
 
