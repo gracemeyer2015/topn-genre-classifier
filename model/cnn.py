@@ -8,8 +8,8 @@ from torch import nn
 #
 # https://github.com/musikalkemist/pytorchforaudio/blob/main/08%20Implementing%20a%20CNN%20network/cnn.py
 #
-# Changed: 3 blocks not 4 (plan spec), padding=1 not 2 (predictable shapes),
-# raw logits not softmax (CrossEntropyLoss applies log-softmax internally).
+# Changed: 3 blocks, padding=1, raw logits - no softmax
+
 #
 # TODO: no hidden layer before the final Linear, unlike PyTorch's "Learn the
 # Basics" tutorial:

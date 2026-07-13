@@ -1,7 +1,5 @@
 # Tensor Contract
 
-> **Provisional** - to be confirmed (pipeline).
-
 **Pipeline -> Model input:** `(N, 1, 128, 130)`, float32
 - N = batch size
 - 1 = single channel
