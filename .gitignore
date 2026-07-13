@@ -5,3 +5,4 @@ capstone-env/
 *.npy
 *.npz
 .DS_Store
+scratch/
