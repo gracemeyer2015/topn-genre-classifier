@@ -5,3 +5,7 @@ capstone-env/
 *.npy
 *.npz
 .DS_Store
+data/
+figures/
+PROMPTS_LOG.md
+scratch/
