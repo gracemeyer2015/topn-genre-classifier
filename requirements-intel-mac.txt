@@ -37,5 +37,6 @@ six==1.17.0
 sympy==1.14.0
 threadpoolctl==3.6.0
 torch==2.2.2
+torchsummary==1.5.1
 torchvision==0.17.2
 typing_extensions==4.16.0
