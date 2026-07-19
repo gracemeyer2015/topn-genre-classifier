@@ -1,14 +1,18 @@
 # entry: argparse full flow of CLI process
 from cli.validation import validate_audio_file
 from cli.inference import load_model, predict_genre
+from preprocess import audio_to_melspectrogram
 import argparse
 # import os
 import torch
 
-
 def preprocess_audio_file(audio_file):
-    return torch.rand(1, 1, 128, 130)
-
+    """
+    """
+    mel_spec = audio_to_melspectrogram(audio_file)
+    tensor = torch.from_numpy(mel_spec)
+    tensor = tensor.unsqueeze(0).unsqueeze(0)
+    return tensor
 
 def parse_arguments():
     """
@@ -32,7 +36,7 @@ def parse_arguments():
 
 
 def main():
-
+ 
     args = parse_arguments()
 
     try:
@@ -48,7 +52,10 @@ def main():
     model, label_mapping = load_model()
     results = predict_genre(model, tensor, label_mapping, args.top_n)
 
-    print(results)
+    for genre, conf in results:
+        print(f"Genre: {genre} Confidence Level: {conf:.1f}%")
+
+
 
 
 if __name__ == "__main__":
