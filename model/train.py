@@ -18,6 +18,10 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
 ) -> tuple[float, float]:
+    """
+    Runs one training pass over dataloader. Returns a tuple containing
+    the average loss and accuracy.
+    """
     model.train()
     total_loss = 0.0
     correct = 0
@@ -45,6 +49,10 @@ def validate_one_epoch(
     loss_fn: nn.Module,
     device: torch.device,
 ) -> tuple[float, float]:
+    """
+    Run a single no-grad evaulation pass returning tuple (average loss and accuracy)
+    weights unchanged.
+    """
     model.eval()
     total_loss = 0.0
     correct = 0
@@ -71,6 +79,9 @@ def train(
     device: torch.device,
     csv_path: str | Path,
 ) -> Path:
+    """
+    Train - logs loss and accuracy to CSV per epoch
+    """
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     model.to(device)
