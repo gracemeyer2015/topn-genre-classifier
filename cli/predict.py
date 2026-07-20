@@ -1,8 +1,7 @@
 # entry: argparse full flow of CLI process
 from cli.validation import validate_audio_file
 from cli.inference import load_model, predict_genre
-from preprocess import melspectrogram_from_audio
-from build_dataset import segment_audio
+from preprocess import melspectrogram_from_audio, segment_audio
 import argparse
 import librosa
 import torch
@@ -15,7 +14,7 @@ def preprocess_audio_file(audio_file):
 
     Args:
         audio_file: a file path name passed in on the command line from user
-    
+
     Returns:
         tensors: a list of tensors, 3 second segments of mel spectrogram data
         in tensor shape
@@ -63,9 +62,9 @@ def main():
     # temporary prints for progress #1 tracking
     print(f"Validated audio file: {args.audio_file}")
 
-    tensor = preprocess_audio_file(args.audio_file)
+    tensors = preprocess_audio_file(args.audio_file)
     model, label_mapping = load_model()
-    results = predict_genre(model, tensor, label_mapping, args.top_n)
+    results = predict_genre(model, tensors, label_mapping, args.top_n)
 
     for genre, conf in results:
         print(f"Genre: {genre} Confidence Level: {conf:.1f}%")
