@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torchsummary import summary
 
 # Input/output shapes below follow docs/tensor-contract.md.
 #
@@ -25,7 +26,9 @@ class GenreCNN(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
+        # 3 conv blocks -> flatten -> linear
         # block 1: 1 input channel (mel spectrogram) -> 16 feature maps
+        # Sequential = containter: PyTorch will process the layers sequentially
         self.conv1 = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
@@ -61,11 +64,19 @@ class GenreCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
         )
+        # Flatten the multidimensional output of the last layer (conv3)
+        # Takes 3F block and creates one long vector 64 * 16 * 16
         self.flatten = nn.Flatten()
+
+        # Dense layer
         # tensor contract: (N, 1, 128, 130) Each block halves H and W
         # (128->64->32->16, 130->65->32->16) = 64 x 16 x 16.
+        # 64 * 16 * 16 is the flattened size of conv3 result after self.flatten
+        # 64 = out_channels of conv3
+        # 10 is the ouput size (10 genres)
         self.linear = nn.Linear(64 * 16 * 16, 10)
 
+    # Define method to pass data from one layer to the next
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         x = self.conv1(input_data)
         x = self.conv2(x)
@@ -82,3 +93,8 @@ if __name__ == "__main__":
     assert out.shape == (4, 10), f"expected (4, 10), got {tuple(out.shape)}"
     n_params = sum(p.numel() for p in cnn.parameters())
     print(f"GenreCNN OK - output shape {tuple(out.shape)}, {n_params:,} parameters")
+
+    # Layer-by-layer breakdown (output shape + params per layer), additive to
+    # the assert above - summary() only prints, it doesn't verify anything.
+    # input_size excludes the batch dim; torchsummary adds its own batch of 2.
+    summary(cnn, (1, 128, 130))

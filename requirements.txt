@@ -49,6 +49,7 @@ soxr==1.1.0
 sympy==1.14.0
 threadpoolctl==3.6.0
 torch==2.12.1
+torchsummary==1.5.1
 torchvision==0.27.1
 typing_extensions==4.16.0
 urllib3==2.7.0
