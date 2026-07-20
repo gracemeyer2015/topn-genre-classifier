@@ -31,7 +31,7 @@ def load_model(PATH_TO_MODEL=None):
     return model, label_mapping
 
 
-def predict_genre(model, tensor, label_mapping, top_n=5):
+def predict_genre(model, tensors, label_mapping, top_n=5):
     """
     Uses the model to predict the genre of a preprocessed audio tensor and
     returns printed top-n closest music genre matches ranked by confidence.
@@ -45,10 +45,16 @@ def predict_genre(model, tensor, label_mapping, top_n=5):
     Returns:
         None: Prints the top-n closest music genre matches ranked by confidence.
     """
-    output = model(tensor)
-    # convert to probabilites
-    probabilities = torch.softmax(output, dim=1)
-    top_prob, top_indices = torch.topk(probabilities, top_n)
+    all_probabilities = []
+    for tensor in tensors:
+        output = model(tensor)
+        # convert to probabilites
+        probabilities = torch.softmax(output, dim=1)
+        all_probabilities.append(probabilities)
+
+    stacked = torch.stack(all_probabilities)
+    avg_probabilities = stacked.mean(dim=0)
+    top_prob, top_indices = torch.topk(avg_probabilities, top_n)
 
     results = []
     for i in range(len(top_prob[0])):

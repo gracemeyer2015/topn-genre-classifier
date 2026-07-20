@@ -1,18 +1,33 @@
 # entry: argparse full flow of CLI process
 from cli.validation import validate_audio_file
 from cli.inference import load_model, predict_genre
-from preprocess import audio_to_melspectrogram
+from preprocess import melspectrogram_from_audio
+from build_dataset import segment_audio
 import argparse
-# import os
+import librosa
 import torch
+
 
 def preprocess_audio_file(audio_file):
     """
+    Take user audio file creates a segmented 3 second mel spectrograms
+    turns them into the right tensor shape
+
+    Args:
+        audio_file: a file path name passed in on the command line from user
+    
+    Returns:
+        tensors: a list of tensors, 3 second segments of mel spectrogram data
+        in tensor shape
     """
-    mel_spec = audio_to_melspectrogram(audio_file)
-    tensor = torch.from_numpy(mel_spec)
-    tensor = tensor.unsqueeze(0).unsqueeze(0)
-    return tensor
+    y, sr = librosa.load(audio_file, sr=None)
+    tensors = []
+    for segment in segment_audio(y, sr, segment_sec=3.0):
+        mel_spec = melspectrogram_from_audio(segment, sr)
+        tensor = torch.from_numpy(mel_spec).unsqueeze(0).unsqueeze(0)
+        tensors.append(tensor)
+    return tensors
+
 
 def parse_arguments():
     """
@@ -36,7 +51,7 @@ def parse_arguments():
 
 
 def main():
- 
+
     args = parse_arguments()
 
     try:
@@ -54,8 +69,6 @@ def main():
 
     for genre, conf in results:
         print(f"Genre: {genre} Confidence Level: {conf:.1f}%")
-
-
 
 
 if __name__ == "__main__":
