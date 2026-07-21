@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-# from sklearn.metrics import ConfusionMatrixDisplay,
-# accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, classification_report
 
 
 true_labels = ["jazz", "rock", "jazz", "blues", "rock",
@@ -73,4 +72,9 @@ def validation_train_loss(csv_file, output_path="loss_curve.png"):
 
 
 my_accuracy = total_accuracy(true_labels, predicted_labels)
-print(f"My acccuracy: {my_accuracy}")
+print(f"My accuracy: {my_accuracy}")
+
+sk_accuracy = accuracy_score(true_labels, predicted_labels)
+print(f"Sklearn accuracy: {sk_accuracy}")
+
+print(classification_report(true_labels, predicted_labels))
