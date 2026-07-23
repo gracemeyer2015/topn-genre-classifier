@@ -33,6 +33,7 @@ def preprocess_audio_file(audio_file):
         mel_spec_seg = mel_spec[np.newaxis, np.newaxis, :, :]
         apply_normalization(mel_spec_seg, mean, std)
         tensor = torch.from_numpy(mel_spec).unsqueeze(0).unsqueeze(0)
+        print(tensor.shape)
         tensors.append(tensor)
     return tensors
 

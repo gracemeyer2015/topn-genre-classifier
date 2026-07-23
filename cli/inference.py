@@ -54,6 +54,7 @@ def predict_genre(model, tensors, label_mapping, top_n=5):
 
     stacked = torch.stack(all_probabilities)
     avg_probabilities = stacked.mean(dim=0)
+
     top_prob, top_indices = torch.topk(avg_probabilities, top_n)
 
     results = []
