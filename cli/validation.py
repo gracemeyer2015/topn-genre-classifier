@@ -30,6 +30,6 @@ def validate_audio_file(file_path):
 
     try:
         # Attempt to load the audio file with librosa to check if it's valid
-        librosa.load(file_path, sr=None)
+        librosa.load(file_path, sr=None, duration=3)
     except Exception as e:
         raise ValueError(f"The file {file_path} could not be loaded by librosa. Error: {e}")
