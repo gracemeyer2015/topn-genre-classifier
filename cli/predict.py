@@ -2,11 +2,11 @@
 from cli.validation import validate_audio_file
 from cli.inference import load_model, predict_genre
 from preprocess import melspectrogram_from_audio, segment_audio, DEFAULT_SR
-# from build_dataset import apply_normalization
+from build_dataset import apply_normalization
 import argparse
 import librosa
 import torch
-# import numpy as np
+import numpy as np
 
 
 def preprocess_audio_file(audio_file):
@@ -22,17 +22,16 @@ def preprocess_audio_file(audio_file):
         in tensor shape
     """
     y, sr = librosa.load(audio_file, sr=DEFAULT_SR)
-    # norm_stats = np.load("data/processed/norm_stats.npz")
-    # mean = norm_stats["mean"]
-    # std = norm_stats[""]
+    norm_stats = np.load("data/processed/norm_stats.npz")
+    mean = norm_stats["mean"]
+    std = norm_stats["std"]
 
     tensors = []
     for segment in segment_audio(y, sr, segment_sec=3.0):
         mel_spec = melspectrogram_from_audio(segment, sr)
 
-        # apply normalization
-        # mel_spec_seg = mel_spec[np.newaxis, np.newaxis, :, :]
-        # apply_normalization(mel_spec_seg, mean, std)
+        mel_spec_seg = mel_spec[np.newaxis, np.newaxis, :, :]
+        apply_normalization(mel_spec_seg, mean, std)
         tensor = torch.from_numpy(mel_spec).unsqueeze(0).unsqueeze(0)
         tensors.append(tensor)
     return tensors
