@@ -18,7 +18,7 @@ CSV_FIELDS = ["epoch", "train_loss", "train_accuracy", "val_loss", "val_accuracy
 # Where build_dataset.py writes train.npz/val.npz/test.npz by default.
 DEFAULT_DATA_DIR = Path("data/processed")
 
-# Each run under __main__ gets its own experiments/<run_id>/ folder --
+# Each run under __main__ gets its own experiments/<run_id>/ folder
 # config.json + notes.md so past runs stay comparable instead of overwriting
 # training_log.csv from run to run.
 EXPERIMENTS_DIR = Path("experiments")
@@ -152,7 +152,7 @@ def _load_dataloaders(
     """
     Loads the train/val splits written by build_dataset.py (see
     docs/tensor-contract.md) into DataLoaders. X is already segmented and
-    per-band normalized -- this just wraps the arrays, no further processing.
+    per-band normalized. This wraps the arrays, no further processing.
     """
     data_dir = Path(data_dir)
 
@@ -185,6 +185,7 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         "epochs": args.epochs,
         "lr": args.lr,
         "batch_size": args.batch_size,
+        "dropout_rate": args.dropout_rate,
         "data_dir": str(args.data_dir),
         "model_architecture": str(model),
         "n_params": sum(p.numel() for p in model.parameters()),
@@ -218,6 +219,10 @@ def _parse_args() -> argparse.Namespace:
         help="Training/validation batch size (default: %(default)s)",
     )
     parser.add_argument(
+        "--dropout-rate", type=float, default=0.5,
+        help="Dropout probability before the final Linear (default: %(default)s)",
+    )
+    parser.add_argument(
         "--label", type=str, default="",
         help="Short name appended to this run's experiments/ folder, "
              "e.g. --label baseline (default: none, just a timestamp)",
@@ -228,7 +233,7 @@ def _parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = _parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = GenreCNN()
+    model = GenreCNN(dropout_rate=args.dropout_rate)
     train_loader, val_loader = _load_dataloaders(args.data_dir, batch_size=args.batch_size)
 
     run_dir = _new_experiment_dir(args.label)
@@ -247,4 +252,4 @@ if __name__ == "__main__":
     plot_training_curves(csv_path, run_dir / "curves.png")
     _write_notes_template(run_dir)
 
-    print(f"Experiment logged to {run_dir}/ -- fill in notes.md with your findings.")
+    print(f"Experiment logged to {run_dir}/ - fill in notes.md with your findings.")

@@ -12,19 +12,20 @@ from torchsummary import summary
 # Changed: 3 blocks, padding=1, raw logits - no softmax
 
 #
-# TODO: no hidden layer before the final Linear, unlike PyTorch's "Learn the
-# Basics" tutorial:
-#
-# https://docs.pytorch.org/tutorials/beginner/basics/buildmodel_tutorial.html
-#
-# GTZAN is small; likely need a hidden layer + dropout if validation
-# curves show overfitting.
+# Status: validation curves showed clear overfitting on GTZAN (train_acc ->
+# ~99%, val_loss turning upward after epoch 2-3, val_acc stuck ~70% See
+# experiments/). Dropout alone (experiments/*_dropout-0.5) helped but didn't
+# close the train/val gap. The final Linear still had 163,850 of the
+# model's ~187k total parameters (flatten was 64*16*16=16,384-dim). Now
+# replacing flatten with global average pooling to actually shrink that
+# layer (16,384 -> 64 features -> Linear(64,10) = 650 params) instead of
+# just making the oversized layer harder to use via dropout alone.
 
 
 class GenreCNN(nn.Module):
     """CNN genre classifier. See docs/tensor-contract.md for I/O shapes."""
 
-    def __init__(self) -> None:
+    def __init__(self, dropout_rate: float = 0.5) -> None:
         super().__init__()
         # 3 conv blocks -> flatten -> linear
         # block 1: 1 input channel (mel spectrogram) -> 16 feature maps
@@ -64,24 +65,30 @@ class GenreCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
         )
-        # Flatten the multidimensional output of the last layer (conv3)
-        # Takes 3F block and creates one long vector 64 * 16 * 16
+        # Global average pooling: average each of conv3's 64 channel feature
+        # maps down to a single value, regardless of their spatial size
+        # (16x16 per the tensor contract). Output is (N, 64, 1, 1) This replaces
+        # flattening the full 64*16*16=16,384-dim map, which was the
+        # overwhelming majority of the model's parameters once fed into a
+        # Linear (163,850 of ~187k total.
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
         self.flatten = nn.Flatten()
 
-        # Dense layer
-        # tensor contract: (N, 1, 128, 130) Each block halves H and W
-        # (128->64->32->16, 130->65->32->16) = 64 x 16 x 16.
-        # 64 * 16 * 16 is the flattened size of conv3 result after self.flatten
-        # 64 = out_channels of conv3
-        # 10 is the ouput size (10 genres)
-        self.linear = nn.Linear(64 * 16 * 16, 10)
+        # Dense layer: 64 pooled channel averages -> 10 genre logits.
+        self.linear = nn.Linear(64, 10)
+
+        # Randomly zeroes activations during training only (no-op in eval
+        # mode) - extra regularization on top of the now much smaller Linear.
+        self.dropout = nn.Dropout(p=dropout_rate)
 
     # Define method to pass data from one layer to the next
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         x = self.conv1(input_data)
         x = self.conv2(x)
         x = self.conv3(x)
+        x = self.global_avg_pool(x)
         x = self.flatten(x)
+        x = self.dropout(x)
         logits = self.linear(x)
         return logits
 
