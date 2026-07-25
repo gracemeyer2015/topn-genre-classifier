@@ -1,5 +1,7 @@
 import argparse
 import csv
+import json
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -8,12 +10,34 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from model.cnn import GenreCNN
+from model.plot_training import plot_training_curves
 
 # Constants: logged once per epoch to CSV.
 CSV_FIELDS = ["epoch", "train_loss", "train_accuracy", "val_loss", "val_accuracy"]
 
 # Where build_dataset.py writes train.npz/val.npz/test.npz by default.
 DEFAULT_DATA_DIR = Path("data/processed")
+
+# Each run under __main__ gets its own experiments/<run_id>/ folder --
+# config.json + notes.md so past runs stay comparable instead of overwriting
+# training_log.csv from run to run.
+EXPERIMENTS_DIR = Path("experiments")
+
+NOTES_TEMPLATE = """# Experiment notes
+
+## Hypothesis
+What are you trying in this run, and why?
+
+## Result summary
+Fill in after training: final train/val loss & accuracy, and how the curve looked
+(see curves.png).
+
+## Interpretation
+Why do you think it turned out this way?
+
+## Next experiment
+What will you try next, and why?
+"""
 
 
 def train_one_epoch(
@@ -143,6 +167,36 @@ def _load_dataloaders(
     return train_loader, val_loader
 
 
+def _new_experiment_dir(label: str = "") -> Path:
+    """Creates experiments/<timestamp>[_label]/ and returns its path."""
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    if label:
+        run_id = f"{run_id}_{label}"
+    run_dir = EXPERIMENTS_DIR / run_id
+    run_dir.mkdir(parents=True)
+    return run_dir
+
+
+def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> None:
+    """Records the hyperparameters and model architecture used for this run,
+    so past experiments/ runs stay comparable instead of relying on memory."""
+    config = {
+        "label": args.label,
+        "epochs": args.epochs,
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "data_dir": str(args.data_dir),
+        "model_architecture": str(model),
+        "n_params": sum(p.numel() for p in model.parameters()),
+    }
+    with open(run_dir / "config.json", "w") as f:
+        json.dump(config, f, indent=2)
+
+
+def _write_notes_template(run_dir: Path) -> None:
+    (run_dir / "notes.md").write_text(NOTES_TEMPLATE)
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train GenreCNN on the dataset written by build_dataset.py."
@@ -164,8 +218,9 @@ def _parse_args() -> argparse.Namespace:
         help="Training/validation batch size (default: %(default)s)",
     )
     parser.add_argument(
-        "--csv-path", type=Path, default=Path("training_log.csv"),
-        help="Path to write the per-epoch CSV log (default: %(default)s)",
+        "--label", type=str, default="",
+        help="Short name appended to this run's experiments/ folder, "
+             "e.g. --label baseline (default: none, just a timestamp)",
     )
     return parser.parse_args()
 
@@ -175,12 +230,21 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = GenreCNN()
     train_loader, val_loader = _load_dataloaders(args.data_dir, batch_size=args.batch_size)
-    train(
+
+    run_dir = _new_experiment_dir(args.label)
+    _write_config(run_dir, args, model)
+
+    csv_path = train(
         model,
         train_loader,
         val_loader,
         epochs=args.epochs,
         lr=args.lr,
         device=device,
-        csv_path=args.csv_path,
+        csv_path=run_dir / "training_log.csv",
     )
+
+    plot_training_curves(csv_path, run_dir / "curves.png")
+    _write_notes_template(run_dir)
+
+    print(f"Experiment logged to {run_dir}/ -- fill in notes.md with your findings.")
