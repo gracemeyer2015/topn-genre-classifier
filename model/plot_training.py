@@ -3,6 +3,8 @@
 Usage: python -m model.plot_training experiments/<run>/training_log.csv
 """
 
+# Written with assistance from Claude Code (Sonnet 5)
+
 import argparse
 import csv
 from pathlib import Path

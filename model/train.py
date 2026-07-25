@@ -1,3 +1,7 @@
+# Real-data loading (_load_dataloaders), dropout_rate CLI wiring, and the
+# experiments/ tracking system (_new_experiment_dir, _write_config,
+# _write_notes_template) written with assistance from Claude Code (Sonnet 5)
+
 import argparse
 import csv
 import json
