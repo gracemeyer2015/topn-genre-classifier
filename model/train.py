@@ -1,6 +1,8 @@
+import argparse
 import csv
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -9,6 +11,9 @@ from model.cnn import GenreCNN
 
 # Constants: logged once per epoch to CSV.
 CSV_FIELDS = ["epoch", "train_loss", "train_accuracy", "val_loss", "val_accuracy"]
+
+# Where build_dataset.py writes train.npz/val.npz/test.npz by default.
+DEFAULT_DATA_DIR = Path("data/processed")
 
 
 def train_one_epoch(
@@ -117,34 +122,65 @@ def train(
     return csv_path
 
 
-def _make_dummy_loaders(
-    n_train: int = 30, n_val: int = 16, batch_size: int = 8
+def _load_dataloaders(
+    data_dir: str | Path, batch_size: int = 32
 ) -> tuple[DataLoader, DataLoader]:
-    """Stand in: Random tensors matching the tensor contract"""
-    train_x = torch.randn(n_train, 1, 128, 130, dtype=torch.float32)
-    train_y = torch.randint(0, 10, (n_train,))
-    val_x = torch.randn(n_val, 1, 128, 130, dtype=torch.float32)
-    val_y = torch.randint(0, 10, (n_val,))
+    """
+    Loads the train/val splits written by build_dataset.py (see
+    docs/tensor-contract.md) into DataLoaders. X is already segmented and
+    per-band normalized -- this just wraps the arrays, no further processing.
+    """
+    data_dir = Path(data_dir)
 
-    train_loader = DataLoader(
-        TensorDataset(train_x, train_y), batch_size=batch_size, shuffle=True
-    )
-    val_loader = DataLoader(
-        TensorDataset(val_x, val_y), batch_size=batch_size, shuffle=False
-    )
+    def _dataset(split: str) -> TensorDataset:
+        with np.load(data_dir / f"{split}.npz") as npz:
+            X = torch.from_numpy(npz["X"])
+            y = torch.from_numpy(npz["y"])
+        return TensorDataset(X, y)
+
+    train_loader = DataLoader(_dataset("train"), batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(_dataset("val"), batch_size=batch_size, shuffle=False)
     return train_loader, val_loader
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Train GenreCNN on the dataset written by build_dataset.py."
+    )
+    parser.add_argument(
+        "--data-dir", type=Path, default=DEFAULT_DATA_DIR,
+        help="Directory with train.npz/val.npz from build_dataset.py (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=10,
+        help="Number of training epochs (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--lr", type=float, default=1e-3,
+        help="Adam learning rate (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=32,
+        help="Training/validation batch size (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--csv-path", type=Path, default=Path("training_log.csv"),
+        help="Path to write the per-epoch CSV log (default: %(default)s)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = _parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = GenreCNN()
-    train_loader, val_loader = _make_dummy_loaders()
+    train_loader, val_loader = _load_dataloaders(args.data_dir, batch_size=args.batch_size)
     train(
         model,
         train_loader,
         val_loader,
-        epochs=3,
-        lr=1e-3,
+        epochs=args.epochs,
+        lr=args.lr,
         device=device,
-        csv_path="training_log.csv",
+        csv_path=args.csv_path,
     )
