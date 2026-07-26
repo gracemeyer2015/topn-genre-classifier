@@ -1,3 +1,6 @@
+# Global average pooling, dropout, and the optional batch-norm conv_block
+# refactor written with assistance from Claude Code (Sonnet 5)
+
 import torch
 from torch import nn
 from torchsummary import summary
@@ -25,46 +28,38 @@ from torchsummary import summary
 class GenreCNN(nn.Module):
     """CNN genre classifier. See docs/tensor-contract.md for I/O shapes."""
 
-    def __init__(self, dropout_rate: float = 0.5) -> None:
+    def __init__(self, dropout_rate: float = 0.5, use_batchnorm: bool = False) -> None:
         super().__init__()
-        # 3 conv blocks -> flatten -> linear
+
+        # Optional BatchNorm2d after each Conv2d before the ReLU
+        # Normalizes activations between layers (mean 0/
+        # std 1 per channel, per batch), which tends to stabilize and speed
+        # up training, and has a mild regularizing effect of its own,
+        # distinct from dropout (dropout randomly zeroes activations;
+        # batchnorm rescales them). Off by default so it doesn't change
+        # existing experiments 
+        def conv_block(in_channels: int, out_channels: int) -> nn.Sequential:
+            layers = [
+                nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                )
+            ]
+            if use_batchnorm:
+                layers.append(nn.BatchNorm2d(out_channels))
+            layers += [nn.ReLU(), nn.MaxPool2d(kernel_size=2)]
+            return nn.Sequential(*layers)
+
+        # 3 conv blocks -> global average pool -> linear
         # block 1: 1 input channel (mel spectrogram) -> 16 feature maps
-        # Sequential = containter: PyTorch will process the layers sequentially
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=1,
-                out_channels=16,
-                kernel_size=3,
-                stride=1,
-                padding=1
-            ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
-        )
+        self.conv1 = conv_block(1, 16)
         # block 2: 16 -> 32 channels, spatial dims halved again
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=16,
-                out_channels=32,
-                kernel_size=3,
-                stride=1,
-                padding=1
-            ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
-        )
+        self.conv2 = conv_block(16, 32)
         # block 3: 32 -> 64 channels, spatial dims halved again
-        self.conv3 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=64,
-                kernel_size=3,
-                stride=1,
-                padding=1
-            ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
-        )
+        self.conv3 = conv_block(32, 64)
         # Global average pooling: average each of conv3's 64 channel feature
         # maps down to a single value, regardless of their spatial size
         # (16x16 per the tensor contract). Output is (N, 64, 1, 1) This replaces

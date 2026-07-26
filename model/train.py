@@ -1,4 +1,5 @@
-# Real-data loading (_load_dataloaders), dropout_rate CLI wiring, and the
+# Real-data loading (_load_dataloaders), dropout_rate/weight_decay/batch-norm
+# CLI wiring, checkpoint saving (best val_loss) in train(), and the
 # experiments/ tracking system (_new_experiment_dir, _write_config,
 # _write_notes_template) written with assistance from Claude Code (Sonnet 5)
 
@@ -112,13 +113,19 @@ def train(
     device: torch.device,
     csv_path: str | Path,
     weight_decay: float = 0.0,
+    checkpoint_path: str | Path | None = None,
 ) -> Path:
     """
-    Train - logs loss and accuracy to CSV per epoch
+    Train - logs loss and accuracy to CSV per epoch. If checkpoint_path is
+    given, saves the model's weights there whenever val_loss reaches a new
+    best -- not just whatever epoch training happens to end on, since the
+    best epoch is often a few epochs before the last one.
     """
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     model.to(device)
+
+    best_val_loss = float("inf")
 
     csv_path = Path(csv_path)
     with open(csv_path, "w", newline="") as f:
@@ -141,6 +148,12 @@ def train(
                 "val_accuracy": val_acc,
             })
             f.flush()
+
+            # Matches the {"model_state_dict": ...} wrapper cli/inference.py
+            # already expects (torch.load(...)["model_state_dict"]).
+            if checkpoint_path is not None and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save({"model_state_dict": model.state_dict()}, checkpoint_path)
 
             print(
                 f"epoch {epoch}/{epochs}  "
@@ -192,6 +205,7 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         "batch_size": args.batch_size,
         "dropout_rate": args.dropout_rate,
         "weight_decay": args.weight_decay,
+        "use_batchnorm": args.batch_norm,
         "data_dir": str(args.data_dir),
         "model_architecture": str(model),
         "n_params": sum(p.numel() for p in model.parameters()),
@@ -233,6 +247,10 @@ def _parse_args() -> argparse.Namespace:
         help="L2 weight decay for the Adam optimizer (default: %(default)s)",
     )
     parser.add_argument(
+        "--batch-norm", action="store_true",
+        help="Add BatchNorm2d after each conv layer (default: off)",
+    )
+    parser.add_argument(
         "--label", type=str, default="",
         help="Short name appended to this run's experiments/ folder, "
              "e.g. --label baseline (default: none, just a timestamp)",
@@ -243,7 +261,7 @@ def _parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = _parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = GenreCNN(dropout_rate=args.dropout_rate)
+    model = GenreCNN(dropout_rate=args.dropout_rate, use_batchnorm=args.batch_norm)
     train_loader, val_loader = _load_dataloaders(args.data_dir, batch_size=args.batch_size)
 
     run_dir = _new_experiment_dir(args.label)
@@ -258,6 +276,7 @@ if __name__ == "__main__":
         device=device,
         csv_path=run_dir / "training_log.csv",
         weight_decay=args.weight_decay,
+        checkpoint_path=run_dir / "checkpoint.pt",
     )
 
     plot_training_curves(csv_path, run_dir / "curves.png")
