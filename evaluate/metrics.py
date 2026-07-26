@@ -1,15 +1,11 @@
-import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, classification_report
-
-
-true_labels = ["jazz", "rock", "jazz", "blues", "rock",
-               "jazz", "blues", "rock", "blues", "jazz"]
-predicted_labels = ["jazz", "rock", "blues", "blues", "rock",
-                    "blues", "blues", "jazz", "blues", "jazz"]
+from evaluate.generate_predictions import generate_predictions
+from model.cnn import GenreCNN
 
 
 def total_accuracy(true_labels, predicted_labels):
+    """
+    """
     count = 0
     for genre in range(len(true_labels)):
         if true_labels[genre] == predicted_labels[genre]:
@@ -20,7 +16,8 @@ def total_accuracy(true_labels, predicted_labels):
 
 
 def per_genre(true_labels, predicted_labels):
-
+    """
+    """
     genre_counts = {}
     per_genre_accuracy = {}
 
@@ -44,6 +41,8 @@ def per_genre(true_labels, predicted_labels):
 
 
 def confusion_matrix(true_labels, predicted_labels):
+    """
+    """
     confusion_matrix = {}
 
     for i in range(len(true_labels)):
@@ -59,22 +58,19 @@ def confusion_matrix(true_labels, predicted_labels):
     return confusion_matrix
 
 
-def validation_train_loss(csv_file, output_path="loss_curve.png"):
-    df = pd.read_csv(csv_file)
+def main():
+    test_data_file_path = "data/processed/test.npz"
+    model = GenreCNN()
+    predicted_labels, true_labels = generate_predictions(model, test_data_file_path)
+    
+    my_accuracy = total_accuracy(true_labels, predicted_labels)
+    print(f"My accuracy: {my_accuracy}")
 
-    plt.plot(df["epoch"], df["train_loss"], label="Train Loss")
-    plt.plot(df["epoch"], df["val_loss"], label="Validation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig(output_path)
-    plt.close()
+    sk_accuracy = accuracy_score(true_labels, predicted_labels)
+    print(f"Sklearn accuracy: {sk_accuracy}")
 
+    print(classification_report(true_labels, predicted_labels))
+    
 
-my_accuracy = total_accuracy(true_labels, predicted_labels)
-print(f"My accuracy: {my_accuracy}")
-
-sk_accuracy = accuracy_score(true_labels, predicted_labels)
-print(f"Sklearn accuracy: {sk_accuracy}")
-
-print(classification_report(true_labels, predicted_labels))
+if __name__ == "__main__":
+    main()
