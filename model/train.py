@@ -111,12 +111,13 @@ def train(
     lr: float,
     device: torch.device,
     csv_path: str | Path,
+    weight_decay: float = 0.0,
 ) -> Path:
     """
     Train - logs loss and accuracy to CSV per epoch
     """
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     model.to(device)
 
     csv_path = Path(csv_path)
@@ -190,6 +191,7 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         "lr": args.lr,
         "batch_size": args.batch_size,
         "dropout_rate": args.dropout_rate,
+        "weight_decay": args.weight_decay,
         "data_dir": str(args.data_dir),
         "model_architecture": str(model),
         "n_params": sum(p.numel() for p in model.parameters()),
@@ -227,6 +229,10 @@ def _parse_args() -> argparse.Namespace:
         help="Dropout probability before the final Linear (default: %(default)s)",
     )
     parser.add_argument(
+        "--weight-decay", type=float, default=0.0,
+        help="L2 weight decay for the Adam optimizer (default: %(default)s)",
+    )
+    parser.add_argument(
         "--label", type=str, default="",
         help="Short name appended to this run's experiments/ folder, "
              "e.g. --label baseline (default: none, just a timestamp)",
@@ -251,6 +257,7 @@ if __name__ == "__main__":
         lr=args.lr,
         device=device,
         csv_path=run_dir / "training_log.csv",
+        weight_decay=args.weight_decay,
     )
 
     plot_training_curves(csv_path, run_dir / "curves.png")
