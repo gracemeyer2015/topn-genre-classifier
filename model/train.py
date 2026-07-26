@@ -1,7 +1,10 @@
 # Real-data loading (_load_dataloaders), dropout_rate/weight_decay/batch-norm
 # CLI wiring, checkpoint saving (best val_loss) in train(), and the
 # experiments/ tracking system (_new_experiment_dir, _write_config,
-# _write_notes_template) written with assistance from Claude Code (Sonnet 5)
+# _write_notes_template) written with assistance from Claude Code (Sonnet 5).
+# Patience-based early stopping was suggested by Claude Code (Sonnet 5)
+# after limiting epoch runs based on observed overfitting on longer runs
+# was suggested here first.
 
 import argparse
 import csv
@@ -114,18 +117,28 @@ def train(
     csv_path: str | Path,
     weight_decay: float = 0.0,
     checkpoint_path: str | Path | None = None,
+    patience: int | None = None,
 ) -> Path:
     """
     Train - logs loss and accuracy to CSV per epoch. If checkpoint_path is
     given, saves the model's weights there whenever val_loss reaches a new
     best -- not just whatever epoch training happens to end on, since the
     best epoch is often a few epochs before the last one.
+
+    If patience is given, stops training early once val_loss hasn't beaten
+    its best value for that many epochs in a row -- long runs (100+ epochs)
+    otherwise keep training well past their real peak with no benefit, just
+    burning time in an increasingly overfit state. patience=None (default)
+    disables this and always runs the full epoch count, matching prior
+    behavior for short runs where this isn't a concern.
     """
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     model.to(device)
 
     best_val_loss = float("inf")
+    best_epoch = 0
+    epochs_since_improvement = 0
 
     csv_path = Path(csv_path)
     with open(csv_path, "w", newline="") as f:
@@ -149,17 +162,30 @@ def train(
             })
             f.flush()
 
-            # Matches the {"model_state_dict": ...} wrapper cli/inference.py
-            # already expects (torch.load(...)["model_state_dict"]).
-            if checkpoint_path is not None and val_loss < best_val_loss:
+            if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                torch.save({"model_state_dict": model.state_dict()}, checkpoint_path)
+                best_epoch = epoch
+                epochs_since_improvement = 0
+                # Matches the {"model_state_dict": ...} wrapper cli/inference.py
+                # already expects (torch.load(...)["model_state_dict"]).
+                if checkpoint_path is not None:
+                    torch.save({"model_state_dict": model.state_dict()}, checkpoint_path)
+            else:
+                epochs_since_improvement += 1
 
             print(
                 f"epoch {epoch}/{epochs}  "
                 f"train_loss={train_loss:.4f} train_acc={train_acc:.4f}  "
                 f"val_loss={val_loss:.4f} val_acc={val_acc:.4f}"
             )
+
+            if patience is not None and epochs_since_improvement >= patience:
+                print(
+                    f"No improvement in val_loss for {patience} epochs "
+                    f"(best was epoch {best_epoch}, val_loss={best_val_loss:.4f}). "
+                    f"Stopping early at epoch {epoch}/{epochs}."
+                )
+                break
 
     return csv_path
 
@@ -205,6 +231,7 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         "batch_size": args.batch_size,
         "dropout_rate": args.dropout_rate,
         "weight_decay": args.weight_decay,
+        "patience": args.patience,
         "use_batchnorm": args.batch_norm,
         "data_dir": str(args.data_dir),
         "model_architecture": str(model),
@@ -251,6 +278,11 @@ def _parse_args() -> argparse.Namespace:
         help="Add BatchNorm2d after each conv layer (default: off)",
     )
     parser.add_argument(
+        "--patience", type=int, default=None,
+        help="Stop early if val_loss hasn't improved for this many epochs "
+             "in a row (default: disabled, always runs the full --epochs)",
+    )
+    parser.add_argument(
         "--label", type=str, default="",
         help="Short name appended to this run's experiments/ folder, "
              "e.g. --label baseline (default: none, just a timestamp)",
@@ -277,6 +309,7 @@ if __name__ == "__main__":
         csv_path=run_dir / "training_log.csv",
         weight_decay=args.weight_decay,
         checkpoint_path=run_dir / "checkpoint.pt",
+        patience=args.patience,
     )
 
     plot_training_curves(csv_path, run_dir / "curves.png")
