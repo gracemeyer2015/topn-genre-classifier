@@ -1,7 +1,12 @@
+from evaluate.metrics import total_accuracy, per_genre, confusion_matrix
+import pytest
+
+
 def test_total_accuracy():
     true = ["jazz", "rock", "blues"]
     pred = ["jazz", "rock", "jazz"]
     assert total_accuracy(true, pred) == pytest.approx(2/3)
+
 
 def test_per_genre_accuracy():
     true = ["jazz", "jazz", "rock"]
@@ -9,6 +14,7 @@ def test_per_genre_accuracy():
     result = per_genre(true, pred)
     assert result["jazz"] == 0.5
     assert result["rock"] == 1.0
+
 
 def test_confusion_matrix():
     true = ["jazz", "rock"]

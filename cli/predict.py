@@ -34,6 +34,10 @@ def preprocess_audio_file(audio_file):
         apply_normalization(mel_spec_seg, mean, std)
         tensor = torch.from_numpy(mel_spec_seg)
         tensors.append(tensor)
+    if not tensors:
+        raise ValueError(f"Audio file {audio_file} is shorter than 3 seconds,"
+                         f"cannot be processed")
+
     return tensors
 
 

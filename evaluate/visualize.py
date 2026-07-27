@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
+
 def validation_train_loss(csv_file, output_path="loss_curve.png"):
     """
     """
@@ -13,4 +14,3 @@ def validation_train_loss(csv_file, output_path="loss_curve.png"):
     plt.legend()
     plt.savefig(output_path)
     plt.close()
-

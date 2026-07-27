@@ -62,7 +62,7 @@ def main():
     test_data_file_path = "data/processed/test.npz"
     model = GenreCNN()
     predicted_labels, true_labels = generate_predictions(model, test_data_file_path)
-    
+
     my_accuracy = total_accuracy(true_labels, predicted_labels)
     print(f"My accuracy: {my_accuracy}")
 
@@ -70,7 +70,7 @@ def main():
     print(f"Sklearn accuracy: {sk_accuracy}")
 
     print(classification_report(true_labels, predicted_labels))
-    
+
 
 if __name__ == "__main__":
     main()

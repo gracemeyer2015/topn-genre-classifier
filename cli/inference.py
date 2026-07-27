@@ -1,5 +1,6 @@
 import torch
 from cli.dummyModel import DummyModel  # Replace with your actual model class
+from build_dataset import GENRES
 
 
 def load_model(PATH_TO_MODEL=None):
@@ -24,13 +25,7 @@ def load_model(PATH_TO_MODEL=None):
     model.eval()   # Set the model to evaluation mode
 
     # explicitly written for now loaded from data pipeline (hot one encoded) later
-    label_mapping = {0: "blues", 1: "classical", 2: "country", 3: "disco", 4:
-                     "hiphop", 5: "jazz", 6: "metal", 7: "pop",
-                     8: "reggae", 9: "rock"}
-    
- 
-
-    return model, label_mapping
+    return model, GENRES
 
 
 def predict_genre(model, tensors, label_mapping, top_n=5):
