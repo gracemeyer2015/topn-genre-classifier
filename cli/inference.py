@@ -23,9 +23,10 @@ def load_model(PATH_TO_MODEL=None):
     model = DummyModel()  # Replace with your actual model class
     # model.load_state_dict(model_contents['model_state_dict'])
     model.eval()   # Set the model to evaluation mode
+    index_to_genre = {i: genre for i, genre in enumerate(GENRES)}
 
     # explicitly written for now loaded from data pipeline (hot one encoded) later
-    return model, GENRES
+    return model, index_to_genre
 
 
 def predict_genre(model, tensors, label_mapping, top_n=5):
