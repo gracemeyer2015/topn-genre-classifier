@@ -1,5 +1,6 @@
 import torch
 from cli.dummyModel import DummyModel  # Replace with your actual model class
+from build_dataset import GENRES
 
 
 def load_model(PATH_TO_MODEL=None):
@@ -22,16 +23,13 @@ def load_model(PATH_TO_MODEL=None):
     model = DummyModel()  # Replace with your actual model class
     # model.load_state_dict(model_contents['model_state_dict'])
     model.eval()   # Set the model to evaluation mode
+    index_to_genre = {i: genre for i, genre in enumerate(GENRES)}
 
     # explicitly written for now loaded from data pipeline (hot one encoded) later
-    label_mapping = {0: "blues", 1: "classical", 2: "country", 3: "disco", 4:
-                     "hiphop", 5: "jazz", 6: "metal", 7: "pop",
-                     8: "reggae", 9: "rock"}
-
-    return model, label_mapping
+    return model, index_to_genre
 
 
-def predict_genre(model, tensor, label_mapping, top_n=5):
+def predict_genre(model, tensors, label_mapping, top_n=5):
     """
     Uses the model to predict the genre of a preprocessed audio tensor and
     returns printed top-n closest music genre matches ranked by confidence.
@@ -45,10 +43,17 @@ def predict_genre(model, tensor, label_mapping, top_n=5):
     Returns:
         None: Prints the top-n closest music genre matches ranked by confidence.
     """
-    output = model(tensor)
-    # convert to probabilites
-    probabilities = torch.softmax(output, dim=1)
-    top_prob, top_indices = torch.topk(probabilities, top_n)
+    all_probabilities = []
+    for tensor in tensors:
+        output = model(tensor)
+        # convert to probabilites
+        probabilities = torch.softmax(output, dim=1)
+        all_probabilities.append(probabilities)
+
+    stacked = torch.stack(all_probabilities)
+    avg_probabilities = stacked.mean(dim=0)
+
+    top_prob, top_indices = torch.topk(avg_probabilities, top_n)
 
     results = []
     for i in range(len(top_prob[0])):
