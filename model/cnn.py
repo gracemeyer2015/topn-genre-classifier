@@ -37,7 +37,7 @@ class GenreCNN(nn.Module):
         # up training, and has a mild regularizing effect of its own,
         # distinct from dropout (dropout randomly zeroes activations;
         # batchnorm rescales them). Off by default so it doesn't change
-        # existing experiments 
+        # existing experiments
         def conv_block(in_channels: int, out_channels: int) -> nn.Sequential:
             layers = [
                 nn.Conv2d(
