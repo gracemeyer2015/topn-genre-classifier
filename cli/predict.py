@@ -76,7 +76,7 @@ def main():
     print(f"Validated audio file: {args.audio_file}")
 
     tensors = preprocess_audio_file(args.audio_file)
-    model, label_mapping = load_model()
+    model, label_mapping = load_model("experiments/20260726-192240_grace-wd1e-3-200ep-2/checkpoint.pt")
     results = predict_genre(model, tensors, label_mapping, args.top_n)
 
     for genre, conf in results:

@@ -21,7 +21,8 @@ def load_model(PATH_TO_MODEL=None):
     # loading the model using state_dict
     # model_contents = torch.load(PATH_TO_MODEL)
     model = GenreCNN()
-    # model.load_state_dict(model_contents['model_state_dict'])
+    checkpoint = torch.load(PATH_TO_MODEL)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()   # Set the model to evaluation mode
     index_to_genre = {i: genre for i, genre in enumerate(GENRES)}
 
