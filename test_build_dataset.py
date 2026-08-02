@@ -51,7 +51,7 @@ def test_build_split_arrays_shapes_and_dtypes(tmp_path):
     _make_genre_tree(root)
     pairs, _ = load_dataset(root)
 
-    X, y = build_split_arrays(pairs, sr=SR, segment_sec=3.0)
+    X, y, song_id = build_split_arrays(pairs, sr=SR, segment_sec=3.0)
 
     expected_segments = len(pairs) * 2  # 6s songs -> 2 segments each
     assert X.shape == (expected_segments, 1, 128, 130)
@@ -59,6 +59,34 @@ def test_build_split_arrays_shapes_and_dtypes(tmp_path):
     assert y.shape == (expected_segments,)
     assert y.dtype == np.int64
     assert set(y.tolist()) == set(range(len(GENRES)))
+    assert song_id.shape == (expected_segments,)
+    assert song_id.dtype == np.int64
+    # Every song here yields exactly 2 segments -> song_id should be a dense
+    # 0..len(pairs)-1 sequence, each value appearing exactly twice, in order.
+    assert song_id.tolist() == [i for i in range(len(pairs)) for _ in range(2)]
+
+
+def test_build_split_arrays_song_id_leaves_gap_for_too_short_song(tmp_path):
+    """A too-short song in the middle of `pairs` contributes zero segments,
+    so its song_id index should be skipped entirely, not reused by the next
+    song or backfilled -- confirms the gap semantics documented in
+    docs/tensor-contract.md rather than leaving them implicit."""
+    ok_a = tmp_path / "ok_a.wav"
+    too_short = tmp_path / "too_short.wav"
+    ok_b = tmp_path / "ok_b.wav"
+    _write_varied_wav(ok_a, frequency=440)
+    _write_varied_wav(too_short, frequency=440, duration_sec=1.0)  # < 3s
+    _write_varied_wav(ok_b, frequency=550)
+
+    X, y, song_id = build_split_arrays(
+        [(ok_a, "blues"), (too_short, "blues"), (ok_b, "blues")],
+        sr=SR, segment_sec=3.0,
+    )
+
+    assert X.shape[0] == 4  # ok_a: 2 segments, too_short: 0, ok_b: 2
+    # song_id 1 (too_short) never appears -- ok_b keeps its "true" index 2
+    # rather than sliding down to 1.
+    assert song_id.tolist() == [0, 0, 2, 2]
 
 
 def test_build_split_arrays_raises_on_unrecognized_genre(tmp_path):
@@ -106,7 +134,7 @@ def test_compute_band_stats_matches_hand_computed_values(tmp_path):
     _make_genre_tree(root)
     pairs, _ = load_dataset(root)
     train_pairs, _val_pairs, _test_pairs = split_songs(pairs)
-    X_train, _y_train = build_split_arrays(train_pairs, sr=SR, segment_sec=3.0)
+    X_train, _y_train, _song_id_train = build_split_arrays(train_pairs, sr=SR, segment_sec=3.0)
 
     mean, std = compute_band_stats(X_train)
 
@@ -127,8 +155,8 @@ def test_apply_normalization_uses_given_stats_exactly(tmp_path):
     pairs, _ = load_dataset(root)
     train_pairs, val_pairs, _test_pairs = split_songs(pairs)
 
-    X_train, _y_train = build_split_arrays(train_pairs, sr=SR, segment_sec=3.0)
-    X_val, _y_val = build_split_arrays(val_pairs, sr=SR, segment_sec=3.0)
+    X_train, _y_train, _song_id_train = build_split_arrays(train_pairs, sr=SR, segment_sec=3.0)
+    X_val, _y_val, _song_id_val = build_split_arrays(val_pairs, sr=SR, segment_sec=3.0)
     train_mean, train_std = compute_band_stats(X_train)
 
     X_val_original = X_val.copy()
@@ -152,12 +180,18 @@ def test_build_dataset_writes_expected_artifacts(tmp_path):
     assert set(splits.keys()) == {"train", "val", "test"}
     for name in ("train", "val", "test"):
         with np.load(output / f"{name}.npz") as data:
-            X, y = data["X"], data["y"]
+            X, y, song_id = data["X"], data["y"], data["song_id"]
             assert X.dtype == np.float32
             assert X.shape[1:] == (1, 128, 130)
             assert y.dtype == np.int64
             assert X.shape[0] == y.shape[0]
             assert np.isfinite(X).all()
+            # song_id round-trips through the actual serialized .npz file,
+            # not just build_split_arrays' in-memory return value -- this is
+            # the real team contract per docs/tensor-contract.md.
+            assert song_id.dtype == np.int64
+            assert song_id.shape == y.shape
+            assert len(np.unique(song_id)) == meta["split_sizes"]["songs"][name]
 
     with np.load(output / "norm_stats.npz") as data:
         mean, std = data["mean"], data["std"]

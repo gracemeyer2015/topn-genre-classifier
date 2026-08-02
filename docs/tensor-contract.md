@@ -26,9 +26,9 @@ to regenerate them):
 
 | File | Keys | Shape | Dtype | Notes |
 |---|---|---|---|---|
-| `train.npz` | `X`, `y` | `(N,1,128,T)`, `(N,)` | float32, int64 | Normalized (see below) |
-| `val.npz` | `X`, `y` | `(N,1,128,T)`, `(N,)` | float32, int64 | Normalized with **train's** stats |
-| `test.npz` | `X`, `y` | `(N,1,128,T)`, `(N,)` | float32, int64 | Normalized with **train's** stats |
+| `train.npz` | `X`, `y`, `song_id` | `(N,1,128,T)`, `(N,)`, `(N,)` | float32, int64, int64 | Normalized (see below); `song_id` unique only within this file, see below |
+| `val.npz` | `X`, `y`, `song_id` | `(N,1,128,T)`, `(N,)`, `(N,)` | float32, int64, int64 | Normalized with **train's** stats |
+| `test.npz` | `X`, `y`, `song_id` | `(N,1,128,T)`, `(N,)`, `(N,)` | float32, int64, int64 | Normalized with **train's** stats |
 | `norm_stats.npz` | `mean`, `std` | `(128,)`, `(128,)` | float32, float32 | Per-mel-band, computed from train only |
 | `meta.json` | -- | -- | -- | Preprocessing params: `sr`, `segment_sec`, `n_mels`, `n_fft`, `hop_length`, `db_ref`, `genres`, `norm_epsilon`, `seed`, `split_ratios`, `split_sizes` |
 
@@ -53,8 +53,28 @@ exact chain on a user-submitted clip.
   yields fewer than 10 segments rather than an error (its trailing partial
   segment is dropped). Confirmed on the real dataset: 799 train songs
   produced 7981 segments, not a flat 7990.
-- **Follow-up, not yet implemented:** per-sample `song_id`/`segment_index`
-  provenance isn't serialized. Without it, aggregating a song's ~10 segment
-  predictions into one song-level prediction/accuracy isn't possible from
-  these artifacts alone -- only segment-level metrics are. Add this if/when
-  song-level evaluation is needed.
+- **`song_id` is unique only *within* one split's own `.npz` file, not
+  globally.** `song_id=5` in `val.npz` and `song_id=5` in `train.npz` are
+  unrelated songs -- don't concatenate across splits and group by `song_id`
+  expecting it to mean anything. Assigned as the 0-based index of the song
+  within that split's song list, in the order `build_split_arrays` processed
+  them; a song that's too short to yield any segments leaves a gap in the
+  sequence (see below) rather than shifting later songs' ids down.
+- **Segments sharing a `song_id` are always contiguous rows** in `X`/`y`/
+  `song_id` -- `build_split_arrays` appends every segment of one song before
+  moving to the next, so a segment's position within its song (if needed)
+  can be recovered by counting the offset from that run's first row, rather
+  than needing its own serialized array.
+- **`song_id` is not guaranteed dense.** A too-short song (see the segment-
+  count caveat above) contributes zero rows, so its index is skipped
+  entirely rather than reused or backfilled -- e.g. songs `[ok, too_short,
+  ok]` produce `song_id` values `[0, 0, .., 2, 2, ..]`, never `1`. Group by
+  the actual unique values present (e.g. `np.unique`), not by iterating
+  `range(max(song_id) + 1)`, and validate song counts via
+  `len(np.unique(song_id))` rather than `max(song_id) + 1`. Note this can
+  diverge from `meta.json`'s `split_sizes.songs` count: that field counts
+  every song *assigned* to the split, while `len(np.unique(song_id))` only
+  counts songs that actually yielded ≥1 segment. They're equal today only
+  because no song in the real GTZAN splits is fully dropped (799/100/100
+  songs -> 7981/1000/1000 segments, none at zero) -- don't assume they'll
+  always match if a future dataset variant does drop a song entirely.
