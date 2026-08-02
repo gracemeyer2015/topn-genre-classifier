@@ -10,3 +10,4 @@ figures/
 PROMPTS_LOG.md
 scratch/
 *.csv
+*.pt
