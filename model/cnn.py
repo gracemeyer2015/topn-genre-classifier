@@ -1,44 +1,52 @@
-# Global average pooling, dropout, and the optional batch-norm conv_block
-# refactor written with assistance from Claude Code (Sonnet 5)
+# Written with assistance from Claude Code (Sonnet 5)
 
 import torch
 from torch import nn
 from torchsummary import summary
 
-# Input/output shapes below follow docs/tensor-contract.md.
-#
-# Base pattern adapted from Valerio Velardo's "PyTorch for Audio + Music
-# Processing" series (Lesson 08, CNNNetwork):
-#
+# Shapes follow docs/tensor-contract.md. Base pattern adapted from Valerio
+# Velardo's "PyTorch for Audio + Music Processing" series (Lesson 08,
+# CNNNetwork), changed to 3 blocks, padding=1, raw logits, no softmax:
 # https://github.com/musikalkemist/pytorchforaudio/blob/main/08%20Implementing%20a%20CNN%20network/cnn.py
-#
-# Changed: 3 blocks, padding=1, raw logits - no softmax
 
-#
-# Status: validation curves showed clear overfitting on GTZAN (train_acc ->
-# ~99%, val_loss turning upward after epoch 2-3, val_acc stuck ~70% See
-# experiments/). Dropout alone (experiments/*_dropout-0.5) helped but didn't
-# close the train/val gap. The final Linear still had 163,850 of the
-# model's ~187k total parameters (flatten was 64*16*16=16,384-dim). Now
-# replacing flatten with global average pooling to actually shrink that
-# layer (16,384 -> 64 features -> Linear(64,10) = 650 params) instead of
-# just making the oversized layer harder to use via dropout alone.
+# GAP replaces flatten to fix overfitting seen in early experiments (see
+# experiments/): flatten fed 16,384 features into the final Linear (163,850
+# of ~187k params). GAP shrinks that to 64 features, cutting the Linear to
+# 650 params.
 
 
 class GenreCNN(nn.Module):
     """CNN genre classifier. See docs/tensor-contract.md for I/O shapes."""
 
     def __init__(self, dropout_rate: float = 0.5, use_batchnorm: bool = False) -> None:
+        """
+        Build the 3-block conv, global average pool, linear architecture.
+
+        Args:
+            dropout_rate (float): Dropout probability before the final
+                Linear. Defaults to 0.5.
+            use_batchnorm (bool): Add BatchNorm2d after each Conv2d.
+                Defaults to False.
+
+        Returns:
+            None
+        """
         super().__init__()
 
-        # Optional BatchNorm2d after each Conv2d before the ReLU
-        # Normalizes activations between layers (mean 0/
-        # std 1 per channel, per batch), which tends to stabilize and speed
-        # up training, and has a mild regularizing effect of its own,
-        # distinct from dropout (dropout randomly zeroes activations;
-        # batchnorm rescales them). Off by default so it doesn't change
-        # existing experiments
+        # Optional BatchNorm2d per conv block: stabilizes/speeds up training
+        # and mildly regularizes, distinct from dropout. Off by default so
+        # it doesn't change existing experiments.
         def conv_block(in_channels: int, out_channels: int) -> nn.Sequential:
+            """
+            Build one Conv2d, optional BatchNorm2d, ReLU, MaxPool2d block.
+
+            Args:
+                in_channels (int): Input channels.
+                out_channels (int): Output channels.
+
+            Returns:
+                nn.Sequential: The assembled block.
+            """
             layers = [
                 nn.Conv2d(
                     in_channels=in_channels,
@@ -53,31 +61,33 @@ class GenreCNN(nn.Module):
             layers += [nn.ReLU(), nn.MaxPool2d(kernel_size=2)]
             return nn.Sequential(*layers)
 
-        # 3 conv blocks -> global average pool -> linear
-        # block 1: 1 input channel (mel spectrogram) -> 16 feature maps
+        # 3 conv blocks: 1 -> 16 -> 32 -> 64 channels, each halving H/W.
         self.conv1 = conv_block(1, 16)
-        # block 2: 16 -> 32 channels, spatial dims halved again
         self.conv2 = conv_block(16, 32)
-        # block 3: 32 -> 64 channels, spatial dims halved again
         self.conv3 = conv_block(32, 64)
-        # Global average pooling: average each of conv3's 64 channel feature
-        # maps down to a single value, regardless of their spatial size
-        # (16x16 per the tensor contract). Output is (N, 64, 1, 1) This replaces
-        # flattening the full 64*16*16=16,384-dim map, which was the
-        # overwhelming majority of the model's parameters once fed into a
-        # Linear (163,850 of ~187k total.
+
+        # GAP averages each of conv3's 64 feature maps to one value
+        # (16x16 -> 1x1), replacing flatten's 16,384-dim output.
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
         self.flatten = nn.Flatten()
 
-        # Dense layer: 64 pooled channel averages -> 10 genre logits.
-        self.linear = nn.Linear(64, 10)
+        self.linear = nn.Linear(64, 10)  # 64 pooled channels -> 10 genres
 
-        # Randomly zeroes activations during training only (no-op in eval
-        # mode) - extra regularization on top of the now much smaller Linear.
+        # Zeroes activations during training only (no-op in eval mode).
         self.dropout = nn.Dropout(p=dropout_rate)
 
-    # Define method to pass data from one layer to the next
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
+        """
+        Run the forward pass.
+
+        Args:
+            input_data (torch.Tensor): Input batch, shape (N, 1, 128, 130),
+                float32.
+
+        Returns:
+            torch.Tensor: Raw logits, shape (N, 10); softmax happens in
+                the CLI, not here.
+        """
         x = self.conv1(input_data)
         x = self.conv2(x)
         x = self.conv3(x)
@@ -96,7 +106,6 @@ if __name__ == "__main__":
     n_params = sum(p.numel() for p in cnn.parameters())
     print(f"GenreCNN OK - output shape {tuple(out.shape)}, {n_params:,} parameters")
 
-    # Layer-by-layer breakdown (output shape + params per layer), additive to
-    # the assert above - summary() only prints, it doesn't verify anything.
-    # input_size excludes the batch dim; torchsummary adds its own batch of 2.
+    # summary() only prints; the assert above is the real check. input_size
+    # excludes the batch dim (torchsummary adds its own batch of 2).
     summary(cnn, (1, 128, 130))
