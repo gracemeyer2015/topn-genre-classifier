@@ -6,11 +6,13 @@ Pipeline: loader.load_dataset (discover + validate) -> split.split_songs
 normalization (stats from train only) -> serialize.
 
 Team handoff contract: writes <output>/{train,val,test}.npz (keys "X" float32
-shape (N, 1, 128, 130), "y" int64 shape (N,)), <output>/norm_stats.npz (keys
-"mean"/"std", float32 shape (128,) -- the per-mel-band normalization already
-applied to X in the three .npz files above), and <output>/meta.json (the
-preprocessing parameters needed to reproduce this exact pipeline on a new
-clip, e.g. for live inference in the CLI). See docs/tensor-contract.md.
+shape (N, 1, 128, 130), "y" int64 shape (N,), "song_id" int64 shape (N,) --
+unique only within one split's own array, see build_split_arrays),
+<output>/norm_stats.npz (keys "mean"/"std", float32 shape (128,) -- the
+per-mel-band normalization already applied to X in the three .npz files
+above), and <output>/meta.json (the preprocessing parameters needed to
+reproduce this exact pipeline on a new clip, e.g. for live inference in the
+CLI). See docs/tensor-contract.md.
 """
 
 import argparse
@@ -70,10 +72,23 @@ def build_split_arrays(
             melspectrogram_from_audio.
 
     Returns:
-        (X, y): X is float32, shape (N, 1, n_mels, time_frames), N being the
-        total segment count across every song in `pairs`. y is int64, shape
-        (N,), each entry the alphabetical genre index (GENRES) of the song
-        that segment came from.
+        (X, y, song_id): X is float32, shape (N, 1, n_mels, time_frames), N
+        being the total segment count across every song in `pairs`. y is
+        int64, shape (N,), each entry the alphabetical genre index (GENRES)
+        of the song that segment came from. song_id is int64, shape (N,),
+        each entry the 0-based index of that segment's song *within this
+        `pairs` list* -- e.g. all segments of pairs[0] get song_id 0, all
+        segments of pairs[1] get song_id 1, and so on. Not globally unique
+        across other calls/splits: it's only meaningful for grouping
+        segments back into songs within this one array. A song that yields
+        zero segments (too short for even one segment_sec clip) leaves a gap
+        in the sequence rather than shifting later songs' ids down -- e.g.
+        pairs = [ok, too_short, ok] produces song_ids [0, 0, .., 2, 2, ..],
+        never reusing 1. Segments from one song are always contiguous rows
+        (appended by the single pass over `segment_audio` below), so
+        segment-within-song position can be recovered by counting a run's
+        offset from its first row rather than needing its own returned
+        array.
 
     Raises:
         ValueError: if `pairs` is empty, `sr`/`segment_sec` is not positive
@@ -83,7 +98,8 @@ def build_split_arrays(
             segment. An unrecognized genre is a hard stop rather than a skip:
             a silently-dropped or mis-encoded genre would corrupt the class
             balance with no visible symptom until training produces confusing
-            results.
+            results. Raised before any array is built, so a rejected `pairs`
+            list never produces a partially-populated song_id.
     """
     if not pairs:
         raise ValueError("build_split_arrays got an empty pairs list -- nothing to build.")
@@ -99,7 +115,8 @@ def build_split_arrays(
 
     specs = []
     labels = []
-    for path, genre in pairs:
+    song_ids = []
+    for song_index, (path, genre) in enumerate(pairs):
         if genre not in GENRE_TO_INDEX:
             raise ValueError(
                 f"Unrecognized genre {genre!r} for {path} -- expected one of {GENRES}."
@@ -113,6 +130,7 @@ def build_split_arrays(
             )
             specs.append(mel_spec)
             labels.append(label)
+            song_ids.append(song_index)
 
     if not specs:
         raise ValueError(
@@ -126,7 +144,8 @@ def build_split_arrays(
     # same "don't allocate a redundant copy" reasoning as apply_normalization.
     X = np.stack(specs).astype(np.float32, copy=False)[:, np.newaxis, :, :]
     y_arr = np.array(labels, dtype=np.int64)
-    return X, y_arr
+    song_id_arr = np.array(song_ids, dtype=np.int64)
+    return X, y_arr, song_id_arr
 
 
 def compute_band_stats(X_train):
@@ -203,9 +222,9 @@ def build_dataset(
         train_frac, val_frac, test_frac, seed: passed to split.split_songs.
 
     Returns:
-        (splits, meta): splits is {"train": (X, y), "val": (X, y),
-        "test": (X, y)} (the same arrays written to disk); meta is the dict
-        written to meta.json.
+        (splits, meta): splits is {"train": (X, y, song_id), "val": (X, y,
+        song_id), "test": (X, y, song_id)} (the same arrays written to
+        disk); meta is the dict written to meta.json.
     """
     pairs, _load_summary = load_dataset(root)
     train_pairs, val_pairs, test_pairs = split_songs(
@@ -219,15 +238,15 @@ def build_dataset(
     ):
         splits[name] = build_split_arrays(split_pairs, sr=sr, segment_sec=segment_sec)
 
-    X_train, _y_train = splits["train"]
+    X_train, _y_train, _song_id_train = splits["train"]
     mean, std = compute_band_stats(X_train)
-    for X, _y in splits.values():
+    for X, _y, _song_id in splits.values():
         apply_normalization(X, mean, std)
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    for name, (X, y) in splits.items():
-        np.savez(output / f"{name}.npz", X=X, y=y)
+    for name, (X, y, song_id) in splits.items():
+        np.savez(output / f"{name}.npz", X=X, y=y, song_id=song_id)
     np.savez(output / "norm_stats.npz", mean=mean, std=std)
 
     meta = {
@@ -243,7 +262,7 @@ def build_dataset(
         "split_ratios": {"train": train_frac, "val": val_frac, "test": test_frac},
         "split_sizes": {
             "songs": song_counts,
-            "segments": {name: int(y.shape[0]) for name, (_X, y) in splits.items()},
+            "segments": {name: int(y.shape[0]) for name, (_X, y, _song_id) in splits.items()},
         },
     }
     with open(output / "meta.json", "w") as f:
@@ -312,10 +331,10 @@ def main():
 
     print(f"Wrote arrays to {args.output}/")
     for name in ("train", "val", "test"):
-        X, y = splits[name]
+        X, y, song_id = splits[name]
         songs = meta["split_sizes"]["songs"][name]
         print(f"  {name:<6} {songs:>4} songs -> X {X.shape} {X.dtype}, "
-              f"y {y.shape} {y.dtype}")
+              f"y {y.shape} {y.dtype}, song_id {song_id.shape} {song_id.dtype}")
 
 
 if __name__ == "__main__":
