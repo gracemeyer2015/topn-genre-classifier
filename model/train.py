@@ -26,22 +26,6 @@ DEFAULT_DATA_DIR = Path("data/processed")
 # comparable instead of overwriting one shared log.
 EXPERIMENTS_DIR = Path("experiments")
 
-NOTES_TEMPLATE = """# Experiment notes
-
-## Hypothesis
-What are you trying in this run, and why?
-
-## Result summary
-Fill in after training: final train/val loss & accuracy, and how the curve looked
-(see curves.png).
-
-## Interpretation
-Why do you think it turned out this way?
-
-## Next experiment
-What will you try next, and why?
-"""
-
 
 def train_one_epoch(
     model: nn.Module,
@@ -292,19 +276,6 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         json.dump(config, f, indent=2)
 
 
-def _write_notes_template(run_dir: Path) -> None:
-    """
-    Write the blank notes.md template into run_dir.
-
-    Args:
-        run_dir (Path): The experiments/<run>/ directory to write into.
-
-    Returns:
-        None
-    """
-    (run_dir / "notes.md").write_text(NOTES_TEMPLATE)
-
-
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train GenreCNN on the dataset written by build_dataset.py."
@@ -373,6 +344,5 @@ if __name__ == "__main__":
     )
 
     plot_training_curves(csv_path, run_dir / "curves.png")
-    _write_notes_template(run_dir)
 
-    print(f"Experiment logged to {run_dir}/. Fill in notes.md with your findings.")
+    print(f"Experiment logged to {run_dir}/.")
