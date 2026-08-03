@@ -1,10 +1,6 @@
-# Real-data loading (_load_dataloaders), dropout_rate/weight_decay/batch-norm
-# CLI wiring, checkpoint saving (best val_loss) in train(), and the
-# experiments/ tracking system (_new_experiment_dir, _write_config,
-# _write_notes_template) written with assistance from Claude Code (Sonnet 5).
-# Patience-based early stopping was suggested by Claude Code (Sonnet 5)
-# after limiting epoch runs based on observed overfitting on longer runs
-# was suggested here first.
+# Real-data loading, batch-norm/weight-decay CLI wiring, checkpoint saving,
+# early stopping, and the experiments/ tracking system written with
+# assistance from Claude Code (Sonnet 5).
 
 import argparse
 import csv
@@ -26,9 +22,8 @@ CSV_FIELDS = ["epoch", "train_loss", "train_accuracy", "val_loss", "val_accuracy
 # Where build_dataset.py writes train.npz/val.npz/test.npz by default.
 DEFAULT_DATA_DIR = Path("data/processed")
 
-# Each run under __main__ gets its own experiments/<run_id>/ folder
-# config.json + notes.md so past runs stay comparable instead of overwriting
-# training_log.csv from run to run.
+# Each run gets its own experiments/<run_id>/ folder, so runs stay
+# comparable instead of overwriting one shared log.
 EXPERIMENTS_DIR = Path("experiments")
 
 NOTES_TEMPLATE = """# Experiment notes
@@ -56,8 +51,17 @@ def train_one_epoch(
     device: torch.device,
 ) -> tuple[float, float]:
     """
-    Runs one training pass over dataloader. Returns a tuple containing
-    the average loss and accuracy.
+    Run one training pass over dataloader, updating model weights.
+
+    Args:
+        model (nn.Module): Updated in place via optimizer.step().
+        dataloader (DataLoader): Yields (inputs, labels) batches.
+        loss_fn (nn.Module): e.g. nn.CrossEntropyLoss().
+        optimizer (torch.optim.Optimizer): Wraps model's parameters.
+        device (torch.device): Device to train on.
+
+    Returns:
+        tuple: (average_loss, accuracy) for this epoch.
     """
     model.train()
     total_loss = 0.0
@@ -87,8 +91,16 @@ def validate_one_epoch(
     device: torch.device,
 ) -> tuple[float, float]:
     """
-    Run a single no-grad evaulation pass returning tuple (average loss and accuracy)
-    weights unchanged.
+    Run one no-grad evaluation pass, leaving model weights unchanged.
+
+    Args:
+        model (nn.Module): Not updated by this function.
+        dataloader (DataLoader): Yields (inputs, labels) batches.
+        loss_fn (nn.Module): e.g. nn.CrossEntropyLoss().
+        device (torch.device): Device to evaluate on.
+
+    Returns:
+        tuple: (average_loss, accuracy).
     """
     model.eval()
     total_loss = 0.0
@@ -120,17 +132,31 @@ def train(
     patience: int | None = None,
 ) -> Path:
     """
-    Train - logs loss and accuracy to CSV per epoch. If checkpoint_path is
-    given, saves the model's weights there whenever val_loss reaches a new
-    best -- not just whatever epoch training happens to end on, since the
-    best epoch is often a few epochs before the last one.
+    Run the full training loop, logging loss and accuracy to CSV per
+    epoch.
 
-    If patience is given, stops training early once val_loss hasn't beaten
-    its best value for that many epochs in a row -- long runs (100+ epochs)
-    otherwise keep training well past their real peak with no benefit, just
-    burning time in an increasingly overfit state. patience=None (default)
-    disables this and always runs the full epoch count, matching prior
-    behavior for short runs where this isn't a concern.
+    If checkpoint_path is given, saves weights on each new best val_loss,
+    not just whatever epoch training ends on. If patience is given, stops
+    early once val_loss hasn't improved for that many epochs, since long
+    runs otherwise keep training well past their peak for no benefit.
+
+    Args:
+        model (nn.Module): Trained in place.
+        train_loader (DataLoader): Training batches.
+        val_loader (DataLoader): Validation batches, evaluated once per
+            epoch.
+        epochs (int): Number of epochs to run.
+        lr (float): Adam learning rate.
+        device (torch.device): Device to train on.
+        csv_path (str | Path): Where to write the per-epoch metrics CSV.
+        weight_decay (float): L2 weight decay for Adam. Defaults to 0.0.
+        checkpoint_path (str | Path | None): Where to save the
+            best-val_loss checkpoint. Defaults to None (disabled).
+        patience (int | None): Stop early after this many epochs without
+            improvement. Defaults to None (disabled).
+
+    Returns:
+        Path: The csv_path written to.
     """
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -166,8 +192,7 @@ def train(
                 best_val_loss = val_loss
                 best_epoch = epoch
                 epochs_since_improvement = 0
-                # Matches the {"model_state_dict": ...} wrapper cli/inference.py
-                # already expects (torch.load(...)["model_state_dict"]).
+                # Matches the {"model_state_dict": ...} wrapper cli/inference.py expects.
                 if checkpoint_path is not None:
                     torch.save({"model_state_dict": model.state_dict()}, checkpoint_path)
             else:
@@ -194,9 +219,17 @@ def _load_dataloaders(
     data_dir: str | Path, batch_size: int = 32
 ) -> tuple[DataLoader, DataLoader]:
     """
-    Loads the train/val splits written by build_dataset.py (see
-    docs/tensor-contract.md) into DataLoaders. X is already segmented and
-    per-band normalized. This wraps the arrays, no further processing.
+    Load the train/val splits from build_dataset.py into DataLoaders.
+
+    X is already segmented and per-band normalized; this just wraps the
+    arrays.
+
+    Args:
+        data_dir (str | Path): Directory with train.npz/val.npz.
+        batch_size (int): Batch size for both loaders. Defaults to 32.
+
+    Returns:
+        tuple: (train_loader, val_loader).
     """
     data_dir = Path(data_dir)
 
@@ -212,7 +245,15 @@ def _load_dataloaders(
 
 
 def _new_experiment_dir(label: str = "") -> Path:
-    """Creates experiments/<timestamp>[_label]/ and returns its path."""
+    """
+    Create experiments/<timestamp>[_label]/ and return its path.
+
+    Args:
+        label (str): Optional suffix for the folder name. Defaults to "".
+
+    Returns:
+        Path: The newly created run directory.
+    """
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     if label:
         run_id = f"{run_id}_{label}"
@@ -222,8 +263,18 @@ def _new_experiment_dir(label: str = "") -> Path:
 
 
 def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> None:
-    """Records the hyperparameters and model architecture used for this run,
-    so past experiments/ runs stay comparable instead of relying on memory."""
+    """
+    Record this run's hyperparameters and architecture, so past runs stay
+    comparable instead of relying on memory.
+
+    Args:
+        run_dir (Path): The experiments/<run>/ directory to write into.
+        args (argparse.Namespace): Parsed CLI arguments for this run.
+        model (nn.Module): Used to record its architecture and param count.
+
+    Returns:
+        None
+    """
     config = {
         "label": args.label,
         "epochs": args.epochs,
@@ -242,6 +293,15 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
 
 
 def _write_notes_template(run_dir: Path) -> None:
+    """
+    Write the blank notes.md template into run_dir.
+
+    Args:
+        run_dir (Path): The experiments/<run>/ directory to write into.
+
+    Returns:
+        None
+    """
     (run_dir / "notes.md").write_text(NOTES_TEMPLATE)
 
 
@@ -315,4 +375,4 @@ if __name__ == "__main__":
     plot_training_curves(csv_path, run_dir / "curves.png")
     _write_notes_template(run_dir)
 
-    print(f"Experiment logged to {run_dir}/ - fill in notes.md with your findings.")
+    print(f"Experiment logged to {run_dir}/. Fill in notes.md with your findings.")

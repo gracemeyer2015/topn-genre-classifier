@@ -13,7 +13,16 @@ import matplotlib.pyplot as plt
 
 
 def plot_training_curves(csv_path: str | Path, output_path: str | Path) -> None:
-    """Reads a train.py CSV log and saves a loss/accuracy-vs-epoch plot."""
+    """
+    Read a train.py CSV log and save a loss/accuracy-vs-epoch plot.
+
+    Args:
+        csv_path (str | Path): Path to a training_log.csv.
+        output_path (str | Path): Where to save the PNG.
+
+    Returns:
+        None
+    """
     epochs, train_loss, train_acc, val_loss, val_acc = [], [], [], [], []
     with open(csv_path, newline="") as f:
         for row in csv.DictReader(f):
