@@ -1,13 +1,15 @@
 # Hyperparameter Tuning Summary
 
+*Written with assistance from Claude Code (Sonnet 5).*
+
 Final settings: **`dropout_rate=0.25`, `weight_decay=0.0001`, `batch_norm=True`,
 GAP architecture.** Based on 138 training runs (see `experiments/`).
 
 ## What "best" means here
 
-1. **Lowest val_loss** — primary signal, the actual training objective.
+1. **Lowest val_loss.** Primary signal, the actual training objective.
 2. **val_accuracy** must agree directionally.
-3. **Train/val gap** catches misleading results — twice in this process an
+3. **Train/val gap** catches misleading results. Twice in this process an
    option looked best on raw val_loss only because it overfit harder to get
    there, not because it generalized better.
 4. **Consistency across reps** breaks remaining ties.
@@ -32,14 +34,14 @@ observed value rather than claim certainty the data doesn't support.
 Settings were tuned one at a time (dropout, then weight decay, then batch
 norm) rather than as a full grid, which would need far more runs than time
 allowed. Comparisons matched epoch budget and every other setting except
-the one being tested — mixing budgets was an early mistake here (see
+the one being tested. Mixing budgets was an early mistake here (see
 Dropout) that inflated an earlier pass before being caught and fixed. Every
 run is scored at its best epoch (lowest val_loss), not its last, since
 early stopping ends runs at different epoch counts.
 
 One-at-a-time tuning assumes settings don't interact. Weight decay and
-batch norm are a documented exception — batch norm's scale invariance
-changes what an L2 penalty does [[1]](#sources) — so we re-tested weight
+batch norm are a documented exception. Batch norm's scale invariance
+changes what an L2 penalty does [[1]](#sources), so we re-tested weight
 decay with batch norm on, at real conditions (200 epochs, patience=25). We
 also checked dropout under batch norm, since that pairing is separately
 documented to interact [[2]](#sources) (dropout is the last layer here,
@@ -53,7 +55,7 @@ Flatten drove train accuracy to ~99% while val accuracy stalled near 70%:
 ![Flatten architecture overfitting](figures/eliminated-flatten-architecture.png)
 
 GAP fixed this by shrinking the final layer from 163,850 to 650 parameters.
-Not revisited with formal statistics — the effect was too large to need it.
+Not revisited with formal statistics. The effect was too large to need it.
 
 ## Dropout: 0.25
 
@@ -93,7 +95,7 @@ weight-decay values:
 
 Every loss comparison is significant. Batch norm's running statistics are
 a noisier estimate at small batch sizes (32 here), producing jaggier
-validation curves than usual [[3]](#sources) — checked directly and
+validation curves than usual [[3]](#sources). Checked directly and
 confirmed the noise doesn't trend upward over time.
 
 ## Weight decay: 0.0001
@@ -111,7 +113,7 @@ top two: t_loss=-0.45, t_acc=1.60).
 
 `0.0001` has the best val_loss, val_accuracy, and gap on both metrics.
 `0.001` only wins on run-to-run consistency. Per the criteria above, that's
-`0.0001` — not statistically proven, but the better observed choice on
+`0.0001`. Not statistically proven, but the better observed choice on
 every metric that outranks variance. Both settings significantly beat no
 weight decay:
 
