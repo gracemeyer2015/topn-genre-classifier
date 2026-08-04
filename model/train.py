@@ -268,6 +268,7 @@ def _write_config(run_dir: Path, args: argparse.Namespace, model: nn.Module) -> 
         "weight_decay": args.weight_decay,
         "patience": args.patience,
         "use_batchnorm": args.batch_norm,
+        "seed": args.seed,
         "data_dir": str(args.data_dir),
         "model_architecture": str(model),
         "n_params": sum(p.numel() for p in model.parameters()),
@@ -318,11 +319,17 @@ def _parse_args() -> argparse.Namespace:
         help="Short name appended to this run's experiments/ folder, "
              "e.g. --label baseline (default: none, just a timestamp)",
     )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Seed torch's RNG for reproducibility (default: unseeded)",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = GenreCNN(dropout_rate=args.dropout_rate, use_batchnorm=args.batch_norm)
     train_loader, val_loader = _load_dataloaders(args.data_dir, batch_size=args.batch_size)

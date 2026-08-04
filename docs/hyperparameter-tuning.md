@@ -115,6 +115,11 @@ top two: t_loss=-0.45, t_acc=1.60).
 every metric that outranks variance. Both settings significantly beat no
 weight decay:
 
+The tuning runs above were unseeded on purpose, to measure natural
+run-to-run variance for the comparisons. The shipped checkpoint below is a
+separate, single seeded run at the final settings, so the result is
+reproducible instead of picked from the sweep:
+
 ![Final config sample training curve](figures/final-config-sample-curve.png)
 
 ## Final settings
@@ -125,6 +130,12 @@ weight decay:
 | `dropout_rate` | 0.25 |
 | `weight_decay` | 0.0001 |
 | `batch_norm` | True |
+| `seed` | 42 |
+
+Checkpoint: `experiments/dr0.25-wd1e-4-bnT-200ep/20260803-164349_final/checkpoint.pt`.
+Best epoch 52 of 77 (patience=25): val_loss=0.8168, val_accuracy=0.748, in
+line with the group average above (val_loss=0.7985 ± 0.0536, val_accuracy=
+0.7579 ± 0.0182), not the single best run.
 
 ## Sources
 
