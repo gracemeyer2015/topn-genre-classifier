@@ -2,6 +2,7 @@ from cli.inference import load_model
 from evaluate.generate_predictions import generate_predictions
 from evaluate.metrics import confusion_matrix, total_accuracy, per_genre
 from evaluate.visualize import plot_confusion_matrix, plot_per_genre_accuracy
+from collections import Counter
 
 
 model, label_mapping = load_model("experiments/dr0.25-wd1e-4-bnT-200ep/"
@@ -11,6 +12,8 @@ predicted_labels, true_labels = generate_predictions(model,
                                                      "data/processed/test.npz")
 
 print(f"Total segments evaluated: {len(true_labels)}")
+
+print(f"Test set genre distribution: {Counter(true_labels)}")
 
 accuracy = total_accuracy(true_labels, predicted_labels)
 genre_accuracy = per_genre(true_labels, predicted_labels)
