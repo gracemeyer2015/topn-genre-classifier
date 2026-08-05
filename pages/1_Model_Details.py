@@ -4,11 +4,13 @@ tables, statistical tests, and source citations."""
 
 import streamlit as st
 
+REPO_URL = "https://github.com/gracemeyer2015/topn-genre-classifier"
+
 st.title("Model Architecture & Training")
 st.write(
     "Final settings: `dropout_rate=0.25`, `weight_decay=0.0001`, "
     "`batch_norm=True`, GAP architecture. Chosen from 138 training runs, "
-    "see [the full writeup](https://github.com/gracemeyer2015/topn-genre-classifier/blob/main/docs/hyperparameter-tuning.md) "
+    f"see [the full writeup]({REPO_URL}/blob/main/docs/hyperparameter-tuning.md) "
     "for the statistics and reasoning behind each choice."
 )
 
