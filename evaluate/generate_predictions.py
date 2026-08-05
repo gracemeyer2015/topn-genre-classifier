@@ -1,4 +1,3 @@
-# from cli.inference import load_model
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
@@ -12,9 +11,9 @@ def generate_predictions(model, test_data_file_path):
     for evaluation
 
     Args:
-        model: A trained (currently, untrained) PyTorch model
-        test_data_file_path (str): .npz file containing the X specs
-        y genre labels as integers matching format of build_dataset.py
+        model: A trained PyTorch model
+        test_data_file_path (str): .npz file containing the X specsy genre
+        labels as integers matching format of build_dataset.py
 
     Returns:
         tuple: (predicted_labels, true_labels) each a list of genre strings,

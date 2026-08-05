@@ -1,6 +1,6 @@
 import torch
-from cli.dummyModel import DummyModel  # Replace with your actual model class
 from build_dataset import GENRES
+from model.cnn import GenreCNN
 
 
 def load_model(PATH_TO_MODEL=None):
@@ -18,14 +18,12 @@ def load_model(PATH_TO_MODEL=None):
         model: The loaded model with the state dictionary applied.
         label_mapping: A dictionary mapping class indices to genre labels provided by data pipeline
     """
-    # loading the model using state_dict
-    # model_contents = torch.load(PATH_TO_MODEL)
-    model = DummyModel()  # Replace with your actual model class
-    # model.load_state_dict(model_contents['model_state_dict'])
-    model.eval()   # Set the model to evaluation mode
+    model = GenreCNN(dropout_rate=0.25, use_batchnorm=True)
+    checkpoint = torch.load(PATH_TO_MODEL)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
     index_to_genre = {i: genre for i, genre in enumerate(GENRES)}
 
-    # explicitly written for now loaded from data pipeline (hot one encoded) later
     return model, index_to_genre
 
 

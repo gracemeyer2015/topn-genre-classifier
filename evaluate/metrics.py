@@ -1,10 +1,19 @@
 from sklearn.metrics import accuracy_score, classification_report
-from evaluate.generate_predictions import generate_predictions
-from model.cnn import GenreCNN
 
 
 def total_accuracy(true_labels, predicted_labels):
     """
+    Compares each predicted genre label with the corresponding true
+    genre label and returns the proportion of correct predictions
+
+    Args:
+        true_label (list[str]): the actual genres from the test data
+        predicted_labels (list[str]): the genres predicted by the model
+
+    Returns:
+        accuracy (float): The overall accuracy, the number of correct
+        predictions divided by the total number of predictions
+        range 0.0-1.0
     """
     count = 0
     for genre in range(len(true_labels)):
@@ -17,6 +26,19 @@ def total_accuracy(true_labels, predicted_labels):
 
 def per_genre(true_labels, predicted_labels):
     """
+    Calculates the accuracy of classification per each genre
+
+    Compares the predicted genre labels with true genre labels
+    computes the accuracy for each genre independently
+
+    Args:
+        true_label (list[str]): the actual genres from the test data
+        predicted_labels (list[str]): the genres predicted by the model
+
+    Returns:
+        per_genre_accuracy (dict[str, float]): maps each genre label to
+        its accuracy correct predictions / total predictions for that
+        genre, range 0.0-1.0
     """
     genre_counts = {}
     per_genre_accuracy = {}
@@ -42,6 +64,23 @@ def per_genre(true_labels, predicted_labels):
 
 def confusion_matrix(true_labels, predicted_labels):
     """
+    Builds a confusion matrix comparing true vs.
+    predicted genre labels
+
+    For every prediction, counts number of times
+    the classified predicted genre matches the
+    true genre label
+
+    Args:
+        true_label (list[str]): the actual genres from the test data
+        predicted_labels (list[str]): the genres predicted by the model
+
+    Returns:
+        confusion_matrix (dict[str, dict[str, int]]): A nested dict
+        the outer dict key gives the segments true genre label, and the
+        inner dict maps each predicted genre to the number of times that
+        genre was predicted. This gives the genre mix-ups at the segment
+        level
     """
     confusion_matrix = {}
 
@@ -59,9 +98,12 @@ def confusion_matrix(true_labels, predicted_labels):
 
 
 def main():
-    test_data_file_path = "data/processed/test.npz"
-    model = GenreCNN()
-    predicted_labels, true_labels = generate_predictions(model, test_data_file_path)
+    """
+    Gives a manual test of the metrics functions using fake labels,
+    separate from any given model predictions or test data
+    """
+    true_labels = ["rock", "jazz", "rock", "pop", "jazz", "rock"]
+    predicted_labels = ["rock", "jazz", "pop", "pop", "rock", "rock"]
 
     my_accuracy = total_accuracy(true_labels, predicted_labels)
     print(f"My accuracy: {my_accuracy}")
@@ -70,6 +112,9 @@ def main():
     print(f"Sklearn accuracy: {sk_accuracy}")
 
     print(classification_report(true_labels, predicted_labels))
+
+    print("Per-genre accuracy:", per_genre(true_labels, predicted_labels))
+    print("confusion matrix", confusion_matrix(true_labels, predicted_labels))
 
 
 if __name__ == "__main__":
