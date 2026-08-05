@@ -27,12 +27,12 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
 
     fig, ax = plt.subplots(figsize=(12, 10))
     im = ax.imshow(matrix, cmap="Blues")
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, shrink=0.8, label="Count")
     ax.set_xticks(range(len(genres)))
     ax.set_xticklabels(genres, rotation=45, ha='right')
     ax.set_yticks(range(len(genres)))
-    ax.set_yticklabels(genres)
-    ax.set_title("Genre Confusion Matrix Per Segment", fontsize=22, pad=24)
+    ax.set_yticklabels(genres, fontsize=11)
+    ax.set_title("Genre Confusion Matrix Per Segment", fontsize=22, pad=24, fontweight="bold")
     ax.set_xlabel("Predicted Genre", fontsize=14, labelpad=12)
     ax.set_ylabel("True Genre", fontsize=14, labelpad=12)
 
