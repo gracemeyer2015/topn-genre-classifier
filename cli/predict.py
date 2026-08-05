@@ -72,11 +72,9 @@ def main():
         print(f"Error: {e}")
         return
 
-    # temporary prints for progress #1 tracking
-    print(f"Validated audio file: {args.audio_file}")
-
     tensors = preprocess_audio_file(args.audio_file)
-    model, label_mapping = load_model("experiments/20260726-192240_grace-wd1e-3-200ep-2/checkpoint.pt")
+    model, label_mapping = load_model("experiments/dr0.25-wd1e-4-bnT-200ep"
+                                      "/20260803-164349_final/checkpoint.pt")
     results = predict_genre(model, tensors, label_mapping, args.top_n)
 
     for genre, conf in results:
