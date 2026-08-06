@@ -6,10 +6,10 @@ from pathlib import Path
 
 def load_model(PATH_TO_MODEL=None):
     """
-    Load the model and its state dictionary from specificed checkpoint path,
+    Load the model and its state dictionary from specified checkpoint path,
     reading the checkpoint's config.json to build the right architecture
     (dropout_rate, use_batchnorm)
-    
+
     Args:
         PATH_TO_MODEL (str): Path to the checkpoint.pt file
             The checkpoint's config is found within the same folder
