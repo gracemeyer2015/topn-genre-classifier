@@ -107,10 +107,8 @@ st.table(
     }
 )
 st.write(
-    "The shipped checkpoint is not the best run from the sweep. It's a "
-    "separate run, trained once at these settings with a fixed seed. "
-    "That keeps the reported performance honest. It shows what these "
-    "settings normally produce, not a lucky best-of-many result."
+    "The final checkpoint was trained once using a fixed seed, not "
+    "picked as the best of many runs."
 )
 st.image("docs/figures/final-config-sample-curve.png")
 
