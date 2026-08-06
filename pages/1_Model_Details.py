@@ -123,3 +123,54 @@ st.write(
     "together into one set of probabilities for the whole song, and the "
     "top 5 are shown."
 )
+
+st.header("Test-set evaluation")
+st.write(
+    "The final checkpoint was evaluated once against the held-out test "
+    "set of 1000 segments, 10 segments per song. The test data is "
+    "perfectly balanced with 100 segments per genre."
+)
+st.write(
+    "77.1% overall accuracy per segment (771 of 1000). For this 10-genre "
+    "classification problem, an untrained model lands the correct guess "
+    "about 10% of the time, for comparison."
+)
+st.image(
+    "docs/figures/confusion_matrix.png",
+    caption="Confusion matrix, segment-level. Rows represent the true "
+    "genre, columns are the model's predictions; the diagonal shows "
+    "where predicted matches true genre.",
+)
+
+st.header("Genre confusion")
+st.write(
+    "Classical is the highest performing genre at 100% accuracy, "
+    "consistent with its distinct instrumentation and lack of distortion "
+    "or electronic production. The most noticeable confusion is that 29 "
+    "of 100 country segments were predicted as blues. Rock was the "
+    "hardest genre for the model to classify, confused across a diverse "
+    "range of genres. Most often rock was confused with metal (15 of 100). "
+    "Having listened to the training data, rock samples do span a wide "
+    "variety of sounds, some closer to metal and some more pop-sounding."
+)
+st.header("Segment-level vs. song-level")
+st.write(
+    "The accuracy metric of 77.1% and the above confusion matrix score each "
+    "3-second segment independently, matching the model training. This built upon "
+    "the CLI averages a song's segment predictions into one final answer, so the "
+    "song level accuracy is closer to what the user actually experiences."
+)
+st.table(
+    {
+        "Metric": ["Accuracy", "Top-2 accuracy"],
+        "Segment-level": ["77.1%", "91%"],
+        "Song-level": ["81.0%", "93%"],
+    }
+)
+st.write(
+    "Averaging a song's segments before scoring recovers about 4 points "
+    "of accuracy. Song-level aggregation helps fix the problem of one "
+    "distinct portion of a song, like a quiet intro, throwing off the "
+    "prediction. The table above also reports top-2 accuracy: how often "
+    "the true genre was among the model's top two guesses."
+)
