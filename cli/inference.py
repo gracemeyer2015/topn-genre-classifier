@@ -6,18 +6,20 @@ from pathlib import Path
 
 def load_model(PATH_TO_MODEL=None):
     """
-    Load the model and its state dictionary from specificed path.
+    Load the model and its state dictionary from specificed checkpoint path,
+    reading the checkpoint's config.json to build the right architecture
+    (dropout_rate, use_batchnorm)
 
     Temporary stub version: no real model exists cannot yet use torch.load or
     model.load_state_dict this content is commented out
 
     Args:
-        state_dict (dict): The state dictionary of the model.
-        PATH_TO_MODEL (str): Path to the model file.
+        PATH_TO_MODEL (str): Path to the checkpoint.pt file
+            The checkpoint's config is found within the same folder
 
     Returns: Tuple containing:
         model: The loaded model with the state dictionary applied.
-        label_mapping: A dictionary mapping class indices to genre labels provided by data pipeline
+        label_mapping: A dictionary mapping class indices to genre labels.
     """
     if PATH_TO_MODEL is None:
         raise ValueError("load_model requires a checkpoint path")
