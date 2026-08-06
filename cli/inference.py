@@ -9,10 +9,7 @@ def load_model(PATH_TO_MODEL=None):
     Load the model and its state dictionary from specificed checkpoint path,
     reading the checkpoint's config.json to build the right architecture
     (dropout_rate, use_batchnorm)
-
-    Temporary stub version: no real model exists cannot yet use torch.load or
-    model.load_state_dict this content is commented out
-
+    
     Args:
         PATH_TO_MODEL (str): Path to the checkpoint.pt file
             The checkpoint's config is found within the same folder
