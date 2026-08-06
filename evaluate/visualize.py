@@ -13,7 +13,6 @@ plt.rcParams["ytick.labelsize"] = 9
 plt.rcParams["axes.titlepad"] = 20
 
 
-
 def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusion_matrix.png"):
     """
     Plots the confusion matrix as a heatmap and saves it
@@ -36,7 +35,7 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
     """
     matrix = [[confusion_matrix.get(true_genre, {}).get(pred_genre, 0)
               for pred_genre in genres] for true_genre in genres]
-   
+
     # Used later for text color changes
     max_count = max(max(r) for r in matrix)
 
@@ -49,7 +48,7 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
     ax.set_xticklabels(genres, rotation=45, ha='right')
     ax.set_yticks(range(len(genres)))
     ax.set_yticklabels(genres)
-    
+
     ax.set_title("Genre Confusion Matrix Per Segment", fontweight="bold")
     ax.set_xlabel("Predicted Genre", labelpad=12)
     ax.set_ylabel("True Genre", labelpad=12)
@@ -57,7 +56,7 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
     # Removes black box around grid on all sides
     for spine in ax.spines.values():
         spine.set_visible(False)
-    
+
     ax.set_xticks([x - 0.5 for x in range(1, len(genres))], minor=True)
     ax.set_yticks([y - 0.5 for y in range(1, len(genres))], minor=True)
     ax.grid(which="minor", color="white", linewidth=1.5)
@@ -66,7 +65,7 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
     for row in range(len(genres)):
         for col in range(len(genres)):
             count = matrix[row][col]
-            color = "white" if count >= (max_count/1.3)  else "#222"
+            color = "white" if count >= (max_count / 1.3) else "#222"
             weight = "bold" if row == col else "normal"
             ax.text(col, row, count, ha='center', va='center', color=color, fontweight=weight)
 
@@ -100,7 +99,7 @@ def plot_per_genre_accuracy(per_genre_accuracy, genres=GENRES,
 
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
-  
+
     ax.set_xlabel("Genre", labelpad=16)
     ax.set_ylabel("Accuracy", labelpad=12)
     ax.set_title("Per-Genre Test Accuracy", fontweight="bold")
