@@ -107,8 +107,8 @@ st.table(
     }
 )
 st.write(
-    "The final checkpoint was trained once using a fixed seed, not "
-    "picked as the best of many runs."
+    "The final checkpoint was trained once using a fixed seed and the "
+    "above settings."
 )
 st.image("docs/figures/final-config-sample-curve.png")
 
