@@ -1,15 +1,15 @@
 import matplotlib.pyplot as plt
 from build_dataset import GENRES
-# graph visual polish code used Claude (Sonnet 5) prompting inspired by the below article
+# graph visual polish help from Claude (Sonnet 5) prompting inspired by the below article
 # https://practicaldatascience.org/notebooks/class_5/week_1/2.2.2_making_plots_pretty_2.html
 
 
 plt.rcParams["font.sans-serif"] = ["Arial", "DejaVu Sans"]
 plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["axes.titlesize"] = 18
-plt.rcParams["axes.labelsize"] = 12
-plt.rcParams["xtick.labelsize"] = 9
-plt.rcParams["ytick.labelsize"] = 9
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 11
+plt.rcParams["xtick.labelsize"] = 8
+plt.rcParams["ytick.labelsize"] = 8
 plt.rcParams["axes.titlepad"] = 20
 
 
@@ -39,9 +39,9 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
     # Used later for text color changes
     max_count = max(max(r) for r in matrix)
 
-    fig, ax = plt.subplots(figsize=(11, 10))
+    fig, ax = plt.subplots(figsize=(8, 7))
     im = ax.imshow(matrix, cmap="Blues")
-    cbar = fig.colorbar(im, ax=ax, shrink=0.75, label="Count", pad=0.02)
+    cbar = fig.colorbar(im, ax=ax, label="Count", pad=0.02)
     cbar.outline.set_visible(False)
 
     ax.set_xticks(range(len(genres)))
@@ -59,7 +59,7 @@ def plot_confusion_matrix(confusion_matrix, genres=GENRES, output_path="confusio
 
     ax.set_xticks([x - 0.5 for x in range(1, len(genres))], minor=True)
     ax.set_yticks([y - 0.5 for y in range(1, len(genres))], minor=True)
-    ax.grid(which="minor", color="white", linewidth=1.5)
+    ax.grid(which="minor", color="white", linewidth=2.5)
     ax.tick_params(which="minor", bottom=False, left=False)
 
     for row in range(len(genres)):
@@ -103,6 +103,7 @@ def plot_per_genre_accuracy(per_genre_accuracy, genres=GENRES,
     ax.set_xlabel("Genre", labelpad=16)
     ax.set_ylabel("Accuracy", labelpad=12)
     ax.set_title("Per-Genre Test Accuracy", fontweight="bold")
+    ax.set_xticks(range(len(genres)))
     ax.set_xticklabels(genres, rotation=45, ha='right', rotation_mode="anchor")
     ax.set_xticklabels(genres, rotation=45, ha='right', rotation_mode="anchor")
     ax.tick_params(axis='y')

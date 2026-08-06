@@ -1,7 +1,7 @@
 from collections import Counter
 from cli.inference import load_model
 from evaluate.generate_predictions import generate_predictions
-from evaluate.metrics import confusion_matrix, total_accuracy, per_genre
+from evaluate.metrics import confusion_matrix, total_accuracy, per_genre, top_k_accuracy
 from evaluate.visualize import plot_confusion_matrix, plot_per_genre_accuracy
 from build_dataset import GENRES
 from evaluate.song_level import (
@@ -43,6 +43,7 @@ unique_song_ids, avg_probs = aggregate_song_probabilities(probabilities, song_id
 _, true_label_indices = song_level_true_labels(y, song_id)
 predicted_indices = avg_probs.argmax(axis=1)
 
+
 song_true_labels = [GENRES[i] for i in true_label_indices]
 song_pred_labels = [GENRES[i] for i in predicted_indices]
 
@@ -62,6 +63,10 @@ plot_per_genre_accuracy(song_genre_accuracy, output_path="docs/figures/"
 # Comparison
 # ---------------------------------------------------------------------------------------------
 
+top_k_song = top_k_accuracy(avg_probs, true_label_indices)
+print(f"Top K Accuracy Song-Level: {top_k_song:.4f}")
+top_k_segment = top_k_accuracy(probabilities, y)
+print(f"Top K Accuracy Segment-Level: {top_k_segment:.4f}")
 print(f"Segment-Level Accuracy: {accuracy:.4f}")
 print(f"Song-Level Accuracy: {song_accuracy:.4f}")
 print(f"Difference: {song_accuracy - accuracy:+.4f}")
