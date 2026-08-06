@@ -24,8 +24,7 @@ st.write(
     "Every segment is converted to a log-mel spectrogram: 128 mel "
     "frequency bands, a 2048-sample FFT window, 512-sample hop length, "
     "producing a 128 x 130 image where one axis is frequency and the "
-    "other is time. That's what the CNN actually sees, an image, not the "
-    "raw waveform."
+    "other is time."
 )
 st.image(
     "docs/figures/sample-melspectrogram.png",
@@ -33,18 +32,16 @@ st.image(
     "brighter = louder at that frequency and moment",
 )
 st.write(
-    "Before scoring, each spectrogram is normalized per frequency band "
-    "using the mean/std computed from the training data only, so val and "
-    "test songs are scored on the same scale the model learned from, "
-    "without leaking their own statistics into that scale."
+    "Before scoring, each spectrogram is normalized per frequency band. "
+    "The mean and std come from the training data only. Val and test "
+    "songs reuse those same numbers, not their own."
 )
 
 st.header("Layer by layer")
 st.write(
     "Three convolutional blocks, each Conv2d -> BatchNorm2d -> ReLU -> "
     "MaxPool2d, followed by global average pooling, dropout, and one "
-    "linear layer down to the 10 genres. 24,170 parameters total, small "
-    "on purpose, this is a CNN trained on ~1000 songs, not millions."
+    "linear layer down to the 10 genres. 24,170 parameters total."
 )
 st.table(
     {
@@ -68,7 +65,7 @@ st.write(
     "easily-memorized feature, and drove train accuracy to ~99% while val "
     "accuracy stalled near 70%. GAP averages each feature map to one "
     "number instead, shrinking the final layer from 163,850 to 650 "
-    "parameters and fixing that overfitting outright."
+    "parameters and reducing overfitting."
 )
 st.image(
     "docs/figures/eliminated-flatten-architecture.png",
@@ -110,9 +107,10 @@ st.table(
     }
 )
 st.write(
-    "The shipped checkpoint is a separate, single seeded run at these "
-    "settings, not the best of the sweep, so its performance reflects "
-    "what these settings typically produce rather than a lucky draw."
+    "The shipped checkpoint is not the best run from the sweep. It's a "
+    "separate run, trained once at these settings with a fixed seed. "
+    "That keeps the reported performance honest. It shows what these "
+    "settings normally produce, not a lucky best-of-many result."
 )
 st.image("docs/figures/final-config-sample-curve.png")
 
