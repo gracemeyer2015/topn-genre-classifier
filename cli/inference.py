@@ -1,24 +1,28 @@
 import torch
 from build_dataset import GENRES
-from model.cnn import GenreCNN
+from evaluate.song_level import build_model_from_config
+from pathlib import Path
 
 
 def load_model(PATH_TO_MODEL=None):
     """
-    Load the model and its state dictionary from specificed path.
-
-    Temporary stub version: no real model exists cannot yet use torch.load or
-    model.load_state_dict this content is commented out
+    Load the model and its state dictionary from specified checkpoint path,
+    reading the checkpoint's config.json to build the right architecture
+    (dropout_rate, use_batchnorm)
 
     Args:
-        state_dict (dict): The state dictionary of the model.
-        PATH_TO_MODEL (str): Path to the model file.
+        PATH_TO_MODEL (str): Path to the checkpoint.pt file
+            The checkpoint's config is found within the same folder
 
     Returns: Tuple containing:
         model: The loaded model with the state dictionary applied.
-        label_mapping: A dictionary mapping class indices to genre labels provided by data pipeline
+        label_mapping: A dictionary mapping class indices to genre labels.
     """
-    model = GenreCNN(dropout_rate=0.25, use_batchnorm=True)
+    if PATH_TO_MODEL is None:
+        raise ValueError("load_model requires a checkpoint path")
+
+    config_path = Path(PATH_TO_MODEL).parent/"config.json"
+    model = build_model_from_config(config_path)
     checkpoint = torch.load(PATH_TO_MODEL)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()

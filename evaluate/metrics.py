@@ -1,4 +1,5 @@
 from sklearn.metrics import accuracy_score, classification_report
+import numpy as np
 
 
 def total_accuracy(true_labels, predicted_labels):
@@ -95,6 +96,32 @@ def confusion_matrix(true_labels, predicted_labels):
             confusion_matrix[genre][predicted] += 1
 
     return confusion_matrix
+
+
+def top_k_accuracy(probabilities, true_label_indices, k=2):
+    """
+    Fraction of examples where the true label is given in
+    the top-k highest probability predictions
+
+    Args:
+        probabilties: numpy array shape (N, 10) N = # segments, 10 = # genres
+        true_label_indices: array shape (N) gives the true genre index
+        k: int the number of top predictions
+
+    Returns:
+        Float fraction of the number of segments or songs that had the
+        true label within their top k predictions
+    """
+    sorted_indices = np.argsort(probabilities, axis=1)
+    top_k_indices = sorted_indices[:, -k:]
+    N = probabilities.shape[0]
+    count = 0
+
+    for i in range(N):
+        if true_label_indices[i] in top_k_indices[i]:
+            count += 1
+
+    return count / N
 
 
 def main():
